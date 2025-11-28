@@ -67,7 +67,17 @@
         }
         const db = firebase.firestore();
 
-        // --- ICONOS (Ahora completos) ---
+        // Habilita el caché para ahorrar miles de lecturas y cargar rápido
+        db.enablePersistence({ synchronizeTabs: true })
+            .catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.log("⚠️ Error: Tienes varias pestañas abiertas. El modo offline solo funciona en una.");
+                } else if (err.code == 'unimplemented') {
+                    console.log("⚠️ Tu navegador no soporta el modo offline.");
+                }
+            });
+
+        // --- ICONOS ---
         const Database = () => <svg className="w-6 h-6 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
         const List = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>;
         const Activity = () => <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
@@ -93,11 +103,13 @@
         const ChevronDown = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>;
         const RotateCcw = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>;
         const ChevronUp = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>;
-        // ESTOS ERAN LOS QUE FALTABAN:
         const Maximize = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>;
         const Minimize = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>;
 
-        // --- COMPRESIÓN ---
+        
+        // --- COMPRESIÓN INTELIGENTE (NITIDEZ PARA WHATSAPP) ---
+        // Mantiene resolución Full HD (1920px) siempre que sea posible
+        // Límite estricto de peso: 500KB (Seguro para Firebase)
         const compressImage = (file) => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -109,19 +121,48 @@
                         const canvas = document.createElement('canvas');
                         let width = img.width;
                         let height = img.height;
-                        let quality = 0.95; 
+                        
+                        // 1. INTENTAMOS MANTENER FULL HD (1920px)
+                        // Esto hace que en el celular se vea nítido.
+                        const MAX_WIDTH = 1920; 
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+
                         const ctx = canvas.getContext('2d');
+                        
+                        // Empezamos con calidad media-alta
+                        let quality = 0.8; 
+                        
                         const attemptCompression = () => {
                             canvas.width = width;
                             canvas.height = height;
+                            
+                            // Suavizado para que el texto no se vea "dentado"
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            
                             ctx.drawImage(img, 0, 0, width, height);
+                            
                             let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                            if (dataUrl.length > 950000) {
-                                width *= 0.9;
-                                height *= 0.9;
-                                if (quality > 0.7) quality -= 0.05;
-                                attemptCompression();
+                            
+                            // 2. EL GUARDIÁN DE FIREBASE: LÍMITE 500 KB
+                            if (dataUrl.length > 500000) {
+                                // ESTRATEGIA: Sacrificar calidad antes que tamaño
+                                if (quality > 0.5) {
+                                    quality -= 0.1;
+                                    // console.log("Bajando calidad para mantener resolución...");
+                                    attemptCompression();
+                                } else {
+                                    // Si ya bajamos mucho la calidad y sigue pesada, ni modo, bajamos tamaño
+                                    width *= 0.9;
+                                    height *= 0.9;
+                                    // console.log("Imagen muy compleja, reduciendo tamaño...");
+                                    attemptCompression();
+                                }
                             } else {
+                                console.log(`✅ FOTO LISTA PARA WHATSAPP: ${Math.round(dataUrl.length/1024)} KB | ${width}px`);
                                 resolve(dataUrl);
                             }
                         };
@@ -271,43 +312,47 @@
                     } catch (err) { alert("Error al copiar: " + err.message); }
 
                 } else {
-                    // PEGAR EVIDENCIA
-                    try {
-                        const items = await navigator.clipboard.read();
-                        for (const item of items) {
-                            if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
-                                const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
-                                const compressedBase64 = await compressImage(blob);
-                                db.collection("historial_validaciones").doc(id).set({ evidence: compressedBase64 }, { merge: true });
-                                
-                                setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: false, isAnimatingCamera: true } : res ));
-                                setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
-                                return;
-                            }
-                        }
-                        alert("No se encontró imagen. Usa el menú.");
-                    } catch (err) {
-                        alert("Permiso bloqueado. Usa el menú.");
-                        handleEvidenceToggle(index); 
-                    }
+                    // PEGAR EVIDENCIA (USA LA NUEVA LÓGICA DE DETECTIVE)
+                    handlePasteEvidence(index, id);
                 }
             };
 
+            // --- MODIFICADO: FUNCIÓN PEGAR CON CHIVATOS (DEBUGGING) ---
             const handlePasteEvidence = async (index, id) => { 
+                console.log(`1. Iniciando pegado para ${id}...`);
                 try {
                     const items = await navigator.clipboard.read();
+                    console.log(`2. Portapapeles leído. Items: ${items.length}`);
+                    
                     for (const item of items) {
                         if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                            console.log("3. Imagen detectada. Procesando blob...");
                             const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
+                            
+                            console.log("4. Comprimiendo...");
                             const compressedBase64 = await compressImage(blob);
-                            db.collection("historial_validaciones").doc(id).set({ evidence: compressedBase64 }, { merge: true });
+                            console.log("5. Compresión terminada. Intentando guardar en Firebase...");
+
+                            // INTENTO DE GUARDADO CON ALERTAS
+                            await db.collection("historial_validaciones").doc(id).set({ 
+                                evidence: compressedBase64,
+                                status: "OK",
+                                fecha: getFormattedDate(),
+                                timestamp: Date.now() // Agregamos timestamp para ordenar
+                            }, { merge: true });
+
+                            console.log("6. ✅ ¡FIREBASE CONFIRMÓ GUARDADO!");
+                            
                             setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: false, isAnimatingCamera: true } : res));
                             setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
                             return;
                         }
                     }
-                    alert("No se encontró una imagen.");
-                } catch (err) { alert("Permiso denegado. Usa Ctrl+V."); }
+                    alert("⚠️ No hay imagen en el portapapeles.");
+                } catch (err) { 
+                    console.error("❌ ERROR FATAL:", err);
+                    alert("ERROR: " + err.message); 
+                }
             };
 
             const handleDeleteEvidence = (id, index) => {
