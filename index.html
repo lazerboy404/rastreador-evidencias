@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rastreador (Calidad Máxima)</title>
+    <title>Rastreador V3 (Final Stable)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -28,9 +28,21 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #0891b2; border-radius: 4px; border: 2px solid #0f172a; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #22d3ee; }
         
-        .transition-height {
-            transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        .transition-all-height { transition: all 0.3s ease-in-out; }
+
+        /* ANIMACIONES */
+        @keyframes glow-pulse {
+            0%, 100% { box-shadow: 0 0 5px currentColor; }
+            50% { box-shadow: 0 0 25px currentColor, 0 0 10px currentColor inset; }
         }
+        .animate-glow { animation: glow-pulse 1s infinite; }
+        
+        @keyframes pop-action {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop-action 0.3s ease-out; }
     </style>
 </head>
 <body class="bg-slate-950 text-cyan-400 selection:bg-cyan-500 selection:text-slate-900 h-[100dvh] w-full overflow-hidden flex flex-col">
@@ -38,9 +50,9 @@
     <div id="root" class="w-full h-full flex flex-col"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
-        // --- CREDENCIALES FIREBASE ---
+        // --- CREDENCIALES ---
         const firebaseConfig = {
             apiKey: "AIzaSyBMY7HoErfv6xpoQsGedjZaMsSst58Q3fA",
             authDomain: "rastreador-ids.firebaseapp.com",
@@ -55,7 +67,7 @@
         }
         const db = firebase.firestore();
 
-        // --- ICONOS ---
+        // --- ICONOS (Ahora completos) ---
         const Database = () => <svg className="w-6 h-6 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
         const List = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>;
         const Activity = () => <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
@@ -78,8 +90,14 @@
         const ClipboardIcon = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>;
         const ImageOff = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M10.41 10.41 12 12"/><path d="M13.22 13.22 16 10l4 4v3a2 2 0 0 1-2 2h-7"/><path d="M8 21H5a2 2 0 0 1-2-2v-7l4 4"/><path d="M19 4h-5"/><path d="M21 8V5a2 2 0 0 0-2-2h-4.58"/></svg>;
         const CloudDownload = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><polyline points="12 12 12 21"/><polyline points="8 17 12 21 16 17"/></svg>;
+        const ChevronDown = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>;
+        const RotateCcw = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>;
+        const ChevronUp = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>;
+        // ESTOS ERAN LOS QUE FALTABAN:
+        const Maximize = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>;
+        const Minimize = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>;
 
-        // --- MOTOR DE COMPRESIÓN ADAPTATIVA (CALIDAD MÁXIMA SEGURA) ---
+        // --- COMPRESIÓN ---
         const compressImage = (file) => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -89,36 +107,24 @@
                     img.src = event.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        // INICIO: Calidad máxima (tamaño original)
                         let width = img.width;
                         let height = img.height;
                         let quality = 0.95; 
-                        
                         const ctx = canvas.getContext('2d');
-                        
-                        // Función recursiva para ajustar tamaño si excede 1MB
                         const attemptCompression = () => {
                             canvas.width = width;
                             canvas.height = height;
                             ctx.drawImage(img, 0, 0, width, height);
-                            
                             let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                            
-                            // Límite seguro para Firestore (~1MB base64 es aprox 1,048,576 caracteres)
-                            // Usamos 950,000 para tener margen de seguridad
                             if (dataUrl.length > 950000) {
-                                // Si es muy grande, reducimos dimensiones un 10% y reintentamos
                                 width *= 0.9;
                                 height *= 0.9;
-                                // También bajamos un poco la calidad si es necesario, pero priorizamos dimensión
                                 if (quality > 0.7) quality -= 0.05;
-                                
-                                attemptCompression(); // Reintentar
+                                attemptCompression();
                             } else {
-                                resolve(dataUrl); // Éxito, cabe en la base de datos
+                                resolve(dataUrl);
                             }
                         };
-                        
                         attemptCompression();
                     };
                 };
@@ -136,6 +142,8 @@
                 return saved ? JSON.parse(saved) : [];
             });
             const [batchStatus, setBatchStatus] = useState(() => localStorage.getItem('v3_results_backup') ? 'done' : 'idle');
+
+            const [activeRow, setActiveRow] = useState(-1);
 
             const [historyStack, setHistoryStack] = useState([]);
             const [historyIndex, setHistoryIndex] = useState(-1);
@@ -204,34 +212,88 @@
                 setHistoryIndex(newHistory.length - 1);
             };
 
-            const handleUndo = () => {
-                if (historyIndex > 0) {
-                    const prevInput = historyStack[historyIndex - 1];
-                    setBatchInput(prevInput);
-                    setHistoryIndex(historyIndex - 1);
-                }
-            };
-
-            const handleRedo = () => {
-                if (historyIndex < historyStack.length - 1) {
-                    const nextInput = historyStack[historyIndex + 1];
-                    setBatchInput(nextInput);
-                    setHistoryIndex(historyIndex + 1);
-                }
-            };
-
-            const getFormattedDate = () => {
-                const now = new Date();
-                return `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
-            };
+            const handleUndo = () => { if (historyIndex > 0) { const prevInput = historyStack[historyIndex - 1]; setBatchInput(prevInput); setHistoryIndex(historyIndex - 1); } };
+            const handleRedo = () => { if (historyIndex < historyStack.length - 1) { const nextInput = historyStack[historyIndex + 1]; setBatchInput(nextInput); setHistoryIndex(historyIndex + 1); } };
+            const getFormattedDate = () => { const now = new Date(); return `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`; };
 
             const handleEvidenceToggle = (index) => {
+                setActiveRow(index); 
                 setBatchResults(prev => prev.map((res, i) => 
                     i === index ? { ...res, isEvidenceOpen: !res.isEvidenceOpen } : res
                 ));
             };
 
-            const handlePasteEvidence = async (index, id) => {
+            const toggleCollapse = (index) => {
+                setBatchResults(prev => prev.map((res, i) => 
+                    i === index ? { ...res, isCollapsed: !res.isCollapsed } : res
+                ));
+            };
+
+            // --- FUNCIÓN TOGGLE GLOBAL ---
+            const handleToggleAllCollapse = () => {
+                const anyCollapsed = batchResults.some(r => r.isCollapsed);
+                setBatchResults(prev => prev.map(res => ({ ...res, isCollapsed: !anyCollapsed })));
+            };
+
+            // --- CÁMARA + AUTO-COLAPSO ---
+            const handleCameraQuickAction = async (index, id, hasEvidence) => {
+                setActiveRow(index);
+                const currentRes = batchResults[index];
+                
+                if (hasEvidence) {
+                    // COPIAR EVIDENCIA
+                    const base64 = historyData[id].evidence;
+                    try {
+                        const img = new Image(); img.src = base64; await new Promise(r => img.onload = r);
+                        const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+                        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+                        canvas.toBlob(async (blob) => {
+                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                            
+                            // AUTO-COLAPSO Y SALTO A LA SIGUIENTE TARJETA
+                            setBatchResults(prev => prev.map((res, i) => 
+                                i === index ? { 
+                                    ...res, 
+                                    imageCopied: true, // Se pone Naranja
+                                    isEvidenceOpen: false, 
+                                    isAnimatingCamera: true,
+                                    isCollapsed: true // SE OCULTA COMPLETAMENTE (Mini-barra)
+                                } : res 
+                            ));
+
+                            // Mover foco a la siguiente
+                            if (index < batchResults.length - 1) {
+                                setActiveRow(index + 1);
+                            }
+
+                            setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
+                        }, 'image/png');
+                    } catch (err) { alert("Error al copiar: " + err.message); }
+
+                } else {
+                    // PEGAR EVIDENCIA
+                    try {
+                        const items = await navigator.clipboard.read();
+                        for (const item of items) {
+                            if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                                const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
+                                const compressedBase64 = await compressImage(blob);
+                                db.collection("historial_validaciones").doc(id).set({ evidence: compressedBase64 }, { merge: true });
+                                
+                                setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: false, isAnimatingCamera: true } : res ));
+                                setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
+                                return;
+                            }
+                        }
+                        alert("No se encontró imagen. Usa el menú.");
+                    } catch (err) {
+                        alert("Permiso bloqueado. Usa el menú.");
+                        handleEvidenceToggle(index); 
+                    }
+                }
+            };
+
+            const handlePasteEvidence = async (index, id) => { 
                 try {
                     const items = await navigator.clipboard.read();
                     for (const item of items) {
@@ -239,97 +301,44 @@
                             const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
                             const compressedBase64 = await compressImage(blob);
                             db.collection("historial_validaciones").doc(id).set({ evidence: compressedBase64 }, { merge: true });
-                            
-                            // AUTO-CIERRE
-                            setBatchResults(prev => prev.map((res, i) => 
-                                i === index ? { ...res, isEvidenceOpen: false } : res
-                            ));
+                            setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: false, isAnimatingCamera: true } : res));
+                            setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
                             return;
                         }
                     }
-                    alert("No se encontró una imagen en el portapapeles.");
-                } catch (err) {
-                    console.error(err);
-                    alert("Permiso denegado. Usa Ctrl+V en el recuadro.");
-                }
+                    alert("No se encontró una imagen.");
+                } catch (err) { alert("Permiso denegado. Usa Ctrl+V."); }
             };
 
             const handleDeleteEvidence = (id, index) => {
                 if(!confirm("¿Borrar imagen?")) return;
                 db.collection("historial_validaciones").doc(id).set({ evidence: null }, { merge: true });
-                setBatchResults(prev => prev.map((res, i) => 
-                    i === index ? { ...res, imageCopied: false } : res
-                ));
+                setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, imageCopied: false } : res ));
             };
 
-            const handleCopyEvidenceToClipboard = async (base64, index) => {
+            const handleCopyEvidenceToClipboard = async (base64, index) => { 
                 try {
-                    const img = new Image();
-                    img.src = base64;
-                    await new Promise(r => img.onload = r);
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-
+                    const img = new Image(); img.src = base64; await new Promise(r => img.onload = r);
+                    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
                     canvas.toBlob(async (blob) => {
-                        try {
-                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                            
-                            // AUTO-CIERRE + LIME + ANIMACIÓN
-                            setBatchResults(prev => prev.map((res, i) => 
-                                i === index ? { 
-                                    ...res, 
-                                    isEvidenceOpen: false, 
-                                    imageCopied: true, 
-                                    evidenceCopiedFeedback: true 
-                                } : res
-                            ));
-                            setTimeout(() => {
-                                setBatchResults(prev => prev.map((res, i) => 
-                                    i === index ? { ...res, evidenceCopiedFeedback: false } : res
-                                ));
-                            }, 2000);
-                        } catch (err) {
-                            alert("Error al copiar: " + err.message);
-                        }
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                        setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: true, evidenceCopiedFeedback: true, isAnimatingCamera: true } : res ));
+                        setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, evidenceCopiedFeedback: false, isAnimatingCamera: false } : res )); }, 300);
                     }, 'image/png');
-
-                } catch (err) {
-                    console.error("Error procesando imagen:", err);
-                    alert("No se pudo procesar la imagen.");
-                }
+                } catch (err) { alert("Error al copiar."); }
             };
 
             const handleClearAllEvidence = async () => {
-                if(!confirm("⚠️ ¿BORRAR TODAS LAS FOTOS DE LA NUBE?\n\nEsto liberará espacio en la base de datos.\nLos registros de validación (OK/NO OK) SE MANTENDRÁN.")) return;
+                if(!confirm("⚠️ ¿BORRAR TODAS LAS FOTOS?")) return;
                 setBatchStatus('processing');
                 try {
                     const snapshot = await db.collection("historial_validaciones").get();
                     const batch = db.batch();
                     let count = 0;
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (data.evidence) {
-                            batch.update(doc.ref, { evidence: firebase.firestore.FieldValue.delete() });
-                            count++;
-                        }
-                    });
-                    if (count > 0) {
-                        await batch.commit();
-                        setBatchResults(prev => prev.map(res => ({ ...res, imageCopied: false })));
-                        alert(`Se eliminaron ${count} evidencias correctamente.`);
-                    } else {
-                        alert("No se encontraron evidencias para borrar.");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    alert("Error al borrar evidencias.");
-                } finally {
-                    setBatchStatus('idle');
-                }
+                    snapshot.forEach(doc => { if (doc.data().evidence) { batch.update(doc.ref, { evidence: firebase.firestore.FieldValue.delete() }); count++; } });
+                    if (count > 0) { await batch.commit(); setBatchResults(prev => prev.map(res => ({ ...res, imageCopied: false }))); alert(`Se eliminaron ${count} evidencias.`); }
+                } catch (error) { console.error(error); } finally { setBatchStatus('idle'); }
             };
 
             const handleDrop = async (e, id, index) => {
@@ -338,7 +347,8 @@
                 if (file && file.type.startsWith('image/')) {
                     const compressed = await compressImage(file);
                     db.collection("historial_validaciones").doc(id).set({ evidence: compressed }, { merge: true });
-                    setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false } : res));
+                    setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: false, isAnimatingCamera: true } : res));
+                    setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
                 }
             };
 
@@ -349,7 +359,8 @@
                         const blob = item.getAsFile();
                         const compressed = await compressImage(blob);
                         db.collection("historial_validaciones").doc(id).set({ evidence: compressed }, { merge: true });
-                        setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false } : res));
+                        setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isEvidenceOpen: false, imageCopied: false, isAnimatingCamera: true } : res));
+                        setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimatingCamera: false } : res )); }, 300);
                     }
                 }
             };
@@ -366,230 +377,115 @@
                     csvContent += `${id},${id}_${sectorName},${checkValue},${checkValue},${checkValue},${observationClean}\n`;
                 });
                 const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = `reporte_auditoria_${getFormattedDate()}.csv`;
-                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `reporte_${getFormattedDate()}.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link);
             };
 
-            const handleClearHistory = async () => {
-                if(!confirm("¿Borrar TODO el historial en la nube?")) return;
-                setBatchStatus('processing');
-                try {
-                    const snapshot = await db.collection("historial_validaciones").get();
-                    const batch = db.batch();
-                    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
-                    await batch.commit();
-                    alert("Historial borrado.");
-                } catch (error) { console.error(error); } 
-                finally { setBatchStatus('idle'); }
-            };
+            const handleClearHistory = async () => { if(!confirm("¿Borrar historial?")) return; setBatchStatus('processing'); try { const snapshot = await db.collection("historial_validaciones").get(); const batch = db.batch(); snapshot.docs.forEach((doc) => batch.delete(doc.ref)); await batch.commit(); alert("Borrado."); } catch (error) { console.error(error); } finally { setBatchStatus('idle'); } };
 
-            const handleCopyNoEvidence = () => {
-                copyToClipboard(TEXT_NO_EVIDENCE, () => {
-                    setCopiedNoEvidence(true);
-                    setTimeout(() => setCopiedNoEvidence(false), 1500);
-                });
-            };
-
+            const handleCopyNoEvidence = () => { copyToClipboard(TEXT_NO_EVIDENCE, () => { setCopiedNoEvidence(true); setTimeout(() => setCopiedNoEvidence(false), 1500); }); };
             const getSector = (item) => item.SECTOR || item.sector || item.Sector || "DESCONOCIDO";
             
             const copyToClipboard = (text, callback) => {
-                if (navigator.clipboard && window.isSecureContext) {
-                     navigator.clipboard.writeText(text).then(() => { if(callback) callback(); });
-                } else {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = text;
-                    textArea.style.position = "fixed"; textArea.style.left = "-9999px";
-                    document.body.appendChild(textArea); textArea.focus(); textArea.select();
-                    try { document.execCommand('copy'); if(callback) callback(); } catch (err) {}
-                    document.body.removeChild(textArea);
-                }
+                if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(() => { if(callback) callback(); }); } else { const textArea = document.createElement("textarea"); textArea.value = text; textArea.style.position = "fixed"; textArea.style.left = "-9999px"; document.body.appendChild(textArea); textArea.focus(); textArea.select(); try { document.execCommand('copy'); if(callback) callback(); } catch (err) {} document.body.removeChild(textArea); }
             };
 
+            // --- LÓGICA DE COLOR ID ---
             const handleIdClick = (id, index, isCopiedGreen) => {
+                setActiveRow(index); 
                 copyToClipboard(id, () => {
                     setBatchResults(prev => prev.map((res, i) => {
                         if (i === index) {
-                            const shouldBeBlue = isCopiedGreen || res.isBlueEffect; 
-                            return { ...res, idCopiedEffect: !shouldBeBlue, isBlueEffect: shouldBeBlue, isAnimating: true };
+                            if (res.isNoOk) return { ...res, isAnimating: true }; 
+                            if (isCopiedGreen || res.isBlueEffect) return { ...res, copied: false, isBlueEffect: true, idCopiedEffect: true, isAnimating: true };
+                            return { ...res, copied: false, isBlueEffect: false, idCopiedEffect: true, isAnimating: true };
                         }
                         return res;
                     }));
-                    setTimeout(() => {
-                        setBatchResults(prev => prev.map((res, i) => 
-                            i === index ? { ...res, isAnimating: false } : res
-                        ));
-                    }, 100);
+                    setTimeout(() => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isAnimating: false } : res )); }, 100);
                 });
             };
 
-            const handleObservationChange = (index, text) => {
-                setBatchResults(prev => prev.map((res, i) => 
-                    i === index ? { ...res, observationText: text } : res
-                ));
-            };
+            const handleObservationChange = (index, text) => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, observationText: text } : res )); };
+            const handleSaveObservation = (index, id, text) => { db.collection("historial_validaciones").doc(id).set({ fecha: getFormattedDate(), validado: true, status: "NO OK", observation: text }, { merge: true }); setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isObservationSaved: true, isInputOpen: false } : res )); };
+            const handleEditObservation = (index) => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isObservationSaved: false } : res )); };
 
-            const handleSaveObservation = (index, id, text) => {
-                db.collection("historial_validaciones").doc(id).set({ 
-                    fecha: getFormattedDate(), 
-                    validado: true,
-                    status: "NO OK",
-                    observation: text
-                }, { merge: true });
+            const handleBatchCopy = (index, itemData, id) => {
+                setActiveRow(index);
+                if (batchResults[index].isNoOk) return;
 
-                setBatchResults(prev => prev.map((res, i) => 
-                    i === index ? { ...res, isObservationSaved: true, isInputOpen: false } : res
-                ));
-            };
-
-            const handleEditObservation = (index) => {
-                setBatchResults(prev => prev.map((res, i) => 
-                    i === index ? { ...res, isObservationSaved: false } : res
-                ));
+                const text = `${id}_${getSector(itemData)}\nVALIDACIÓN\nIMAGEN OK\nGRABACIÓN OK\nMOVIMIENTO PTZ OK`;
+                copyToClipboard(text, () => {
+                    db.collection("historial_validaciones").doc(id).set({ fecha: getFormattedDate(), validado: true, status: "OK", observation: "" }, { merge: true });
+                    setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, copied: true, idCopiedEffect: false, isBlueEffect: false, isNoOk: false, isInputOpen: false } : res ));
+                });
             };
 
             const handleNoOk = (index) => {
+                setActiveRow(index);
                 setBatchResults(prev => prev.map((res, i) => {
                     if (i !== index) return res;
-                    if (res.isNoOk) {
-                        return { ...res, isInputOpen: !res.isInputOpen };
-                    }
-                    return { 
-                        ...res, isNoOk: true, copied: false, idCopiedEffect: false, isBlueEffect: false, 
-                        observationText: res.observationText || "", isObservationSaved: false, isInputOpen: true 
-                    };
+                    if (res.isNoOk) { return { ...res, isInputOpen: !res.isInputOpen }; }
+                    return { ...res, isNoOk: true, copied: false, idCopiedEffect: false, isBlueEffect: false, observationText: res.observationText || "", isObservationSaved: false, isInputOpen: true };
                 }));
+            };
+
+            const handleResetCard = (index) => {
+                setActiveRow(index);
+                setBatchResults(prev => prev.map((res, i) => 
+                    i === index ? { 
+                        ...res, 
+                        copied: false, isNoOk: false, isBlueEffect: false, idCopiedEffect: false,
+                        observationText: "", isObservationSaved: false, isInputOpen: false, isEvidenceOpen: false, imageCopied: false,
+                        isCollapsed: false 
+                    } : res
+                ));
             };
 
             const handleBatchProcess = () => {
                 if (!batchInput.trim()) return;
-                setBatchStatus('processing');
-                setBatchResults([]);
-                setManualCollapse(true);
-                saveToHistory(batchInput);
-
+                setBatchStatus('processing'); setBatchResults([]); setManualCollapse(true); saveToHistory(batchInput);
                 const rawIds = batchInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
                 const seenInBatch = new Set();
-
                 setTimeout(() => {
                     const results = rawIds.map(id => {
                         const normId = id.toUpperCase();
-                        const isDuplicateBatch = seenInBatch.has(normId);
-                        seenInBatch.add(normId);
+                        const isDuplicateBatch = seenInBatch.has(normId); seenInBatch.add(normId);
                         const found = data.find(item => String(item.ID || item.id || item.Id).trim().toUpperCase() === normId);
                         const cloudData = historyData[normId];
-                        
                         return { 
-                            searchedId: id, 
-                            data: found, 
-                            copied: false, 
-                            isDuplicate: isDuplicateBatch, 
-                            isHistory: !!cloudData,
-                            idCopiedEffect: false,
-                            isBlueEffect: false,
-                            isAnimating: false,
+                            searchedId: id, data: found, copied: false, isDuplicate: isDuplicateBatch, isHistory: !!cloudData,
+                            idCopiedEffect: false, isBlueEffect: false, isAnimating: false,
                             isNoOk: cloudData ? cloudData.status === "NO OK" : false,
                             observationText: cloudData ? cloudData.observation : "",
                             isObservationSaved: cloudData ? !!cloudData.observation : false,
-                            isInputOpen: false,
-                            isEvidenceOpen: false,
-                            evidenceCopiedFeedback: false,
-                            imageCopied: false 
+                            isInputOpen: false, isEvidenceOpen: false, evidenceCopiedFeedback: false, imageCopied: false,
+                            isCollapsed: false 
                         }; 
                     });
-                    
-                    const newValidIdsToSave = results
-                        .filter(r => r.data && !r.isHistory && !r.isDuplicate)
-                        .map(r => r.searchedId.toUpperCase());
-
-                    if (newValidIdsToSave.length > 0) {
-                        const batch = db.batch();
-                        const ts = Date.now();
-                        newValidIdsToSave.forEach((id, idx) => {
-                            batch.set(db.collection("historial_validaciones").doc(id), { 
-                                timestamp: ts + idx,
-                                fecha: getFormattedDate(), 
-                                validado: true,
-                                status: "OK",
-                                observation: ""
-                            });
-                        });
-                        batch.commit().catch(err => console.error(err));
-                    }
-
-                    setBatchResults(results);
-                    setBatchStatus('done');
+                    setBatchResults(results); setBatchStatus('done');
                 }, 800);
             };
 
-            const handleBatchCopy = (index, itemData, id) => {
-                const text = `${id}_${getSector(itemData)}\nVALIDACIÓN\nIMAGEN OK\nGRABACIÓN OK\nMOVIMIENTO PTZ OK`;
-                copyToClipboard(text, () => {
-                    db.collection("historial_validaciones").doc(id).set({
-                        fecha: getFormattedDate(),
-                        validado: true,
-                        status: "OK",
-                        observation: ""
-                    }, { merge: true });
+            const handleCleanInput = () => { setLastDeletedInput(batchInput); setBatchInput(''); setBatchResults([]); setBatchStatus('idle'); setManualCollapse(false); saveToHistory(''); setActiveRow(-1); };
+            const handleRestoreInput = () => { if (lastDeletedInput) { setBatchInput(lastDeletedInput); saveToHistory(lastDeletedInput); } };
+            const handleRestoreCloudSession = async () => { if (!confirm("¿Restaurar?")) return; setBatchStatus('processing'); try { const doc = await db.collection('app_state').doc('global_session').get(); if (doc.exists) { const remoteData = doc.data(); setBatchInput(remoteData.input || ''); setBatchResults(remoteData.results || []); if (remoteData.results?.length > 0) { setBatchStatus('done'); setManualCollapse(true); } else { setBatchStatus('idle'); } alert("Recuperado."); } } catch (error) { console.error(error); alert("Error."); } finally { if (batchResults.length === 0 && !batchInput) setBatchStatus('idle'); } };
 
-                    setBatchResults(prev => prev.map((res, i) => 
-                        i === index ? { ...res, copied: true, idCopiedEffect: false, isBlueEffect: false, isNoOk: false, isInputOpen: false } : res
-                    ));
-                });
-            };
-
-            const handleCleanInput = () => {
-                setLastDeletedInput(batchInput);
-                setBatchInput('');
-                setBatchResults([]);
-                setBatchStatus('idle');
-                setManualCollapse(false);
-                saveToHistory('');
-            };
-
-            const handleRestoreInput = () => {
-                if (lastDeletedInput) {
-                    setBatchInput(lastDeletedInput);
-                    saveToHistory(lastDeletedInput);
-                }
-            };
-
-            const handleRestoreCloudSession = async () => {
-                if (!confirm("¿Restaurar sesión desde la nube? Se sobrescribirá lo actual.")) return;
-                setBatchStatus('processing');
-                try {
-                    const doc = await db.collection('app_state').doc('global_session').get();
-                    if (doc.exists) {
-                        const remoteData = doc.data();
-                        setBatchInput(remoteData.input || '');
-                        setBatchResults(remoteData.results || []);
-                        if (remoteData.results?.length > 0) {
-                            setBatchStatus('done');
-                            setManualCollapse(true);
-                        } else {
-                            setBatchStatus('idle');
-                        }
-                        alert("✅ Sesión recuperada exitosamente.");
-                    } else {
-                        alert("⚠️ No hay sesión guardada en la nube.");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    alert("Error al recuperar sesión.");
-                } finally {
-                    if (batchResults.length === 0 && !batchInput) setBatchStatus('idle');
-                }
-            };
-
-            const stats = {
-                total: batchResults.length,
-                duplicates: batchResults.filter(r => r.isDuplicate).length,
-                processed: batchResults.filter(r => r.copied).length,
-                inHistory: batchResults.filter(r => r.isHistory).length
-            };
-
+            const stats = { total: batchResults.length, duplicates: batchResults.filter(r => r.isDuplicate).length, processed: batchResults.filter(r => r.copied).length, inHistory: batchResults.filter(r => r.isHistory).length };
             const isCollapsed = manualCollapse;
+
+            // --- ESTILOS DE COLOR TARJETA ---
+            const getGlowColor = (res) => {
+                if (res.isNoOk) return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]';
+                if (res.isBlueEffect && !res.copied) return 'text-blue-500 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]';
+                if (res.idCopiedEffect && !res.isHistory && !res.copied && !res.isBlueEffect) return 'text-fuchsia-500 border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.6)]';
+                if (res.copied) return 'text-green-500 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]';
+                if (res.isDuplicate) return 'text-yellow-500 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]';
+                if (res.isHistory) return 'text-purple-500 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.6)]';
+                return 'text-cyan-500 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]'; 
+            };
+
+            const noOkCount = Object.values(historyData).filter(r => r.status === "NO OK").length;
+            const anyCollapsed = batchResults.some(r => r.isCollapsed);
 
             return (
                 <div className="h-full w-full bg-slate-950 text-cyan-400 font-mono selection:bg-cyan-500 selection:text-slate-900 overflow-hidden relative flex flex-col">
@@ -602,41 +498,33 @@
                         <div className="flex items-center gap-3">
                             <Database />
                             <h1 className="text-xl md:text-2xl font-bold tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 text-center md:text-left">
-                            SISTEMA DE RASTREO V3
+                            RASTREADOR V3 FINAL
                             </h1>
                         </div>
                         <div className="flex items-center gap-3 text-xs flex-wrap justify-end">
-                            <button onClick={handleRestoreCloudSession} className="px-3 py-1 rounded border flex items-center gap-2 transition-all cursor-pointer bg-cyan-900/40 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900/60 hover:text-white" title="Descargar sesión guardada en la nube">
-                                <CloudDownload /> RESTAURAR SESIÓN
-                            </button>
-                            <button onClick={handleCopyNoEvidence} className={`px-3 py-1 rounded border flex items-center gap-2 transition-all cursor-pointer font-bold ${copiedNoEvidence ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-950/40 text-orange-400 border-orange-500/50 hover:bg-orange-900/60 hover:text-white'}`} title="Copiar texto: SIN EVIDENCIA...">
-                                <AlertCircle /> {copiedNoEvidence ? 'COPIADO' : 'SIN EVIDENCIA'}
-                            </button>
+                            <button onClick={handleRestoreCloudSession} className="px-3 py-1 rounded border flex items-center gap-2 transition-all cursor-pointer bg-cyan-900/40 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900/60 hover:text-white"><CloudDownload /> RESTAURAR</button>
+                            <button onClick={handleCopyNoEvidence} className={`px-3 py-1 rounded border flex items-center gap-2 transition-all cursor-pointer font-bold ${copiedNoEvidence ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-950/40 text-orange-400 border-orange-500/50 hover:bg-orange-900/60 hover:text-white'}`}><AlertCircle /> {copiedNoEvidence ? 'COPIADO' : 'SIN EVIDENCIA'}</button>
                             {historyList.length > 0 && <button onClick={handleExportExcel} className="px-3 py-1 rounded border border-green-500/50 bg-green-950/40 text-green-400 hover:bg-green-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer font-bold shadow-[0_0_10px_rgba(74,222,128,0.2)]"><Download /> EXCEL</button>}
-                            {historyList.length > 0 && <button onClick={handleClearAllEvidence} className="px-3 py-1 rounded border border-orange-500/50 bg-orange-950/40 text-orange-400 hover:bg-orange-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer" title="Borrar SOLO las fotos de la nube"><ImageOff /> FOTOS</button>}
+                            {historyList.length > 0 && <button onClick={handleClearAllEvidence} className="px-3 py-1 rounded border border-orange-500/50 bg-orange-950/40 text-orange-400 hover:bg-orange-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"><ImageOff /> FOTOS</button>}
                             {historyList.length > 0 && <button onClick={handleClearHistory} className="px-3 py-1 rounded border border-red-500/50 bg-red-950/40 text-red-400 hover:bg-red-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"><Trash /> BORRAR</button>}
-                            <div className={`px-3 py-1 rounded border flex items-center gap-2 transition-colors ${dbConnected ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-red-900/30 border-red-500/30 text-red-400'}`}>
-                                <Cloud /> {dbConnected ? `ONLINE (${historyList.length})` : 'OFFLINE'}
+                            <div className={`px-3 py-1 rounded border flex items-center gap-2 transition-colors ${dbConnected ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-red-900/30 border-red-500/30 text-red-400'}`}><Cloud /> {dbConnected ? `ONLINE (${historyList.length})` : 'OFFLINE'}</div>
+                            
+                            <div className="px-3 py-1 rounded border border-red-500/50 bg-red-950/60 text-red-400 flex items-center gap-2 font-bold shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                                <XCircle className="w-4 h-4" /> NO OK: {noOkCount}
                             </div>
                         </div>
                     </header>
 
                     <div className="animate-in fade-in duration-500 w-full flex flex-col lg:flex-row gap-6 flex-grow min-h-0 overflow-hidden">
-                        
                         <div className={`w-full lg:w-1/3 flex flex-col gap-4 shrink-0 lg:shrink transition-height duration-500 ease-in-out relative ${isCollapsed ? 'h-[65px] lg:h-full' : 'h-[55%] lg:h-full'}`}>
                             <div className="bg-slate-900/80 border border-cyan-500/30 rounded-lg p-4 flex-grow flex flex-col shadow-[0_0_15px_rgba(6,182,212,0.1)] h-full overflow-hidden relative group">
                                 <button onClick={() => setManualCollapse(!manualCollapse)} className="absolute top-2 right-2 text-cyan-600 hover:text-cyan-300 p-1 z-50 lg:hidden"><Expand className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-180'}`} /></button>
                                 <div className="flex items-center justify-between mb-2 flex-shrink-0 pr-8">
                                     <div className="flex items-center gap-2 text-cyan-500 text-sm tracking-widest"><List /> INGRESO DE IDs</div>
-                                    
                                     <div className="flex gap-1">
                                         <button onClick={handleUndo} disabled={historyIndex <= 0} className="text-cyan-400 hover:text-white hover:bg-cyan-900/50 p-1 rounded disabled:opacity-30 disabled:hover:bg-transparent"><Undo /></button>
                                         <button onClick={handleRedo} disabled={historyIndex >= historyStack.length - 1} className="text-cyan-400 hover:text-white hover:bg-cyan-900/50 p-1 rounded disabled:opacity-30 disabled:hover:bg-transparent"><Redo /></button>
-                                        
-                                        {lastDeletedInput && (
-                                            <button onClick={handleRestoreInput} className="text-sm md:text-base text-cyan-400 hover:text-white hover:bg-cyan-900/50 px-3 py-1 rounded transition-all flex items-center gap-1 border border-transparent md:border-cyan-900/30 ml-2" title="Recuperar última lista borrada">RECUPERAR</button>
-                                        )}
-
+                                        {lastDeletedInput && (<button onClick={handleRestoreInput} className="text-sm md:text-base text-cyan-400 hover:text-white hover:bg-cyan-900/50 px-3 py-1 rounded transition-all flex items-center gap-1 border border-transparent md:border-cyan-900/30 ml-2">RECUPERAR</button>)}
                                         {batchInput && <button onClick={handleCleanInput} className="text-sm md:text-base text-red-400 hover:text-white hover:bg-red-900/50 px-3 py-1 rounded transition-all underline md:no-underline border border-transparent md:border-red-900/30 ml-2">LIMPIAR</button>}
                                     </div>
                                 </div>
@@ -649,7 +537,15 @@
 
                         <div className="w-full lg:w-2/3 bg-slate-900/40 border border-cyan-900/30 rounded-lg p-4 flex flex-col h-full min-h-0">
                             <div className="flex flex-wrap gap-4 justify-between items-center mb-4 border-b border-cyan-900/50 pb-2 flex-shrink-0">
-                                <h3 className="text-cyan-400 tracking-widest text-sm font-bold">RESULTADOS</h3>
+                                <div className="flex items-center gap-4">
+                                    <h3 className="text-cyan-400 tracking-widest text-sm font-bold">RESULTADOS</h3>
+                                    {batchResults.length > 0 && (
+                                        <button onClick={handleToggleAllCollapse} className="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-300 px-2 py-1 rounded border border-slate-600 flex items-center gap-1 transition-colors">
+                                            {anyCollapsed ? <Maximize className="w-3 h-3"/> : <Minimize className="w-3 h-3"/>}
+                                            {anyCollapsed ? "EXPANDIR TODO" : "CONTRAER TODO"}
+                                        </button>
+                                    )}
+                                </div>
                                 {batchResults.length > 0 && (
                                     <div className="flex flex-wrap gap-3 text-[10px] md:text-xs font-mono items-center justify-end flex-grow">
                                         {stats.duplicates > 0 && <span className="text-yellow-300 bg-yellow-900/20 px-2 py-1 rounded border border-yellow-500/20 whitespace-nowrap">DUPLICADOS: {stats.duplicates}</span>}
@@ -667,23 +563,57 @@
                                 {batchStatus === 'processing' && (
                                     <div className="space-y-3 p-4"><div className="text-center text-cyan-400 tracking-widest animate-pulse mb-4">CONSULTANDO NUBE...</div>{[1,2,3,4,5].map(i => <div key={i} className="h-14 bg-slate-800/50 rounded animate-pulse border border-cyan-900/20"></div>)}</div>
                                 )}
-                                {batchResults.map((res, idx) => (
+                                {batchResults.map((res, idx) => {
+                                    const hasEvidence = !!historyData[res.searchedId.toUpperCase()]?.evidence;
+                                    const isActive = activeRow === idx;
+                                    const glowColorClass = getGlowColor(res);
+                                    
+                                    const isCopied = res.imageCopied;
+                                    const btnColor = hasEvidence 
+                                        ? isCopied 
+                                            ? 'bg-orange-500 text-white border-orange-400 shadow-orange-500/50' 
+                                            : 'bg-blue-600 text-white border-blue-500 shadow-blue-500/50' 
+                                        : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/30 hover:bg-cyan-800 hover:text-white';
+
+                                    if (res.isCollapsed) {
+                                        return (
+                                            <div 
+                                                key={idx} 
+                                                onClick={() => toggleCollapse(idx)}
+                                                className={`
+                                                    flex items-center justify-between p-2 rounded mb-2 cursor-pointer transition-all-height border border-slate-800 bg-slate-950/80 hover:border-cyan-500/50
+                                                    ${isActive ? 'border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : ''}
+                                                `}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-mono text-xs text-slate-600">{(idx + 1).toString().padStart(2, '0')}</span>
+                                                    <span className="font-bold text-sm text-cyan-600">{res.searchedId.toUpperCase()}</span>
+                                                    <div className={`w-2 h-2 rounded-full ${res.isNoOk ? 'bg-red-500' : res.copied ? 'bg-green-500' : hasEvidence ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
+                                                </div>
+                                                <ChevronDown className="w-4 h-4 text-cyan-600"/>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
                                     <div 
                                         key={idx} 
+                                        onClick={() => setActiveRow(idx)}
                                         className={`
-                                            flex flex-col p-3 rounded border transition-all gap-3 
+                                            flex flex-col p-3 rounded transition-all-height gap-3 relative
+                                            ${isActive ? `animate-glow border-[3px] ${glowColorClass}` : 'border'}
                                             ${res.isNoOk
                                                 ? 'bg-red-950/90 border-red-500 shadow-[inset_0_0_20px_rgba(220,38,38,0.5)]'
                                                 : res.isDuplicate
                                                     ? 'bg-yellow-900/10 border-yellow-500/30'
-                                                    : res.isBlueEffect
-                                                        ? 'bg-blue-950/90 border-blue-500 shadow-[inset_0_0_20px_rgba(59,130,246,0.5)]'
-                                                        : res.copied 
-                                                            ? 'bg-slate-950/90 border-green-400/50 opacity-90' 
-                                                            : res.isHistory 
-                                                                ? 'bg-purple-900/20 border-purple-500/30' 
-                                                                : res.isDuplicate 
-                                                                    ? 'bg-yellow-900/10 border-yellow-500/30' 
+                                                    : res.isBlueEffect && !res.copied 
+                                                        ? 'bg-blue-900/60 border-blue-500 shadow-[inset_0_0_30px_rgba(59,130,246,0.4)]'
+                                                        : res.idCopiedEffect && !res.isHistory && !res.copied 
+                                                            ? 'bg-fuchsia-900/60 border-fuchsia-500 shadow-[inset_0_0_20px_rgba(232,121,249,0.3)]'
+                                                            : res.copied 
+                                                                ? 'bg-slate-950/90 border-green-400/50 opacity-90' 
+                                                                : res.isHistory 
+                                                                    ? 'bg-purple-900/20 border-purple-500/30' 
                                                                     : res.data 
                                                                         ? 'bg-slate-900/60 border-cyan-500/20' 
                                                                         : 'bg-red-950/10 border-red-900/20 opacity-70'
@@ -694,13 +624,11 @@
                                             <div className="flex items-start gap-3 overflow-hidden w-full">
                                                 <div className={`font-mono text-xs w-6 pt-1 transition-colors duration-300
                                                     ${res.isNoOk 
-                                                        ? 'text-red-200 font-bold drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]'
+                                                        ? 'text-red-200 font-bold'
+                                                        : res.isBlueEffect && !res.copied ? 'text-blue-200 font-bold'
                                                         : res.idCopiedEffect 
-                                                            ? res.isHistory ? 'text-white font-bold' : 'text-fuchsia-400 font-bold'
-                                                            : res.isBlueEffect ? 'text-blue-400 font-bold drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]'
-                                                            : res.copied ? 'text-green-400 font-bold'
-                                                            : res.isDuplicate ? 'text-yellow-300 font-bold'
-                                                            : res.isHistory ? 'text-purple-400'
+                                                            ? res.isHistory ? 'text-white' : 'text-fuchsia-200 font-bold'
+                                                            : res.copied ? 'text-green-400'
                                                             : 'text-slate-500'
                                                     }
                                                 `}>
@@ -709,19 +637,20 @@
                                                 <div className="flex flex-col min-w-0 flex-grow">
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <button 
-                                                            onClick={() => handleIdClick(res.searchedId.toUpperCase(), idx, res.copied)} 
+                                                            onClick={(e) => { e.stopPropagation(); handleIdClick(res.searchedId.toUpperCase(), idx, res.copied); }}
                                                             className={`
                                                                 text-lg md:text-xl font-bold text-left truncate transition-all duration-75
                                                                 ${res.isAnimating ? 'scale-110 text-white drop-shadow-[0_0_10px_rgba(255,255,255,1)]' : 'scale-100'} 
                                                                 ${res.isNoOk 
                                                                     ? 'text-red-100 drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]'
-                                                                    : res.idCopiedEffect 
-                                                                        ? res.isHistory ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]' : 'text-fuchsia-400 drop-shadow-[0_0_5px_rgba(232,121,249,0.5)]'
-                                                                        : res.isBlueEffect ? 'text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,1)]'
-                                                                        : res.copied ? 'text-green-400' 
-                                                                        : res.isDuplicate ? 'text-yellow-200'
-                                                                        : res.isHistory ? 'text-purple-300' 
-                                                                        : res.data ? 'text-cyan-100' : 'text-red-400'
+                                                                    : res.isBlueEffect && !res.copied
+                                                                        ? 'text-blue-100 drop-shadow-[0_0_8px_rgba(59,130,246,1)]'
+                                                                        : res.idCopiedEffect 
+                                                                            ? res.isHistory ? 'text-white' : 'text-white drop-shadow-[0_0_5px_rgba(232,121,249,0.8)]'
+                                                                            : res.copied ? 'text-green-400' 
+                                                                            : res.isDuplicate ? 'text-yellow-200'
+                                                                            : res.isHistory ? 'text-purple-300' 
+                                                                            : res.data ? 'text-cyan-100' : 'text-red-400'
                                                                 }
                                                             `}
                                                         >
@@ -732,10 +661,10 @@
                                                     </div>
                                                     <span className={`text-sm truncate block font-semibold transition-colors duration-300
                                                         ${res.isNoOk 
-                                                            ? 'text-red-200 drop-shadow-[0_0_3px_rgba(220,38,38,0.5)]'
+                                                            ? 'text-red-200'
+                                                            : res.isBlueEffect && !res.copied ? 'text-blue-200'
                                                             : res.idCopiedEffect 
-                                                                ? res.isHistory ? 'text-white drop-shadow-[0_0_2px_rgba(255,255,255,0.5)]' : 'text-fuchsia-400 drop-shadow-[0_0_2px_rgba(232,121,249,0.5)]'
-                                                                : res.isBlueEffect ? 'text-blue-300 drop-shadow-[0_0_3px_rgba(96,165,250,0.8)]'
+                                                                ? 'text-fuchsia-200'
                                                                 : res.copied ? 'text-green-500' 
                                                                 : res.isHistory ? 'text-purple-400' 
                                                                 : res.isDuplicate ? 'text-yellow-600' : 'text-cyan-600'
@@ -747,30 +676,45 @@
                                             </div>
                                             
                                             {res.data && (
-                                                <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center">
+                                                <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center items-stretch h-full">
                                                     
-                                                    <button 
-                                                        onClick={() => handleEvidenceToggle(idx)}
-                                                        className={`
-                                                            w-10 rounded border transition-all flex items-center justify-center flex-shrink-0
-                                                            ${res.imageCopied // LIME NEÓN
-                                                                ? 'bg-lime-400 text-slate-900 border-lime-300 shadow-[0_0_15px_rgba(163,230,53,0.9)] font-bold'
-                                                                : historyData[res.searchedId.toUpperCase()]?.evidence 
-                                                                    ? 'bg-blue-600 text-white border-blue-500 shadow-[0_0_10px_rgba(37,99,235,0.6)]' 
-                                                                    : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/30 hover:bg-blue-900/30 hover:border-blue-500/50 hover:text-blue-300'
-                                                            }
-                                                        `}
-                                                        title="Adjuntar/Ver Evidencia"
-                                                    >
-                                                        <Camera />
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleCollapse(idx); }} className="w-6 text-slate-500 hover:text-white flex items-center justify-center bg-black/20 rounded hover:bg-black/40 h-10 border border-transparent hover:border-slate-600">
+                                                        <ChevronUp className="w-4 h-4"/>
                                                     </button>
 
-                                                    <button onClick={() => handleNoOk(idx)} className={`w-10 rounded border transition-all flex items-center justify-center flex-shrink-0 ${res.isNoOk ? 'bg-red-600 text-white border-red-500 shadow-[0_0_10px_rgba(220,38,38,0.6)]' : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/30 hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-300'}`} title="Marcar como NO OK"><XCircle /></button>
-                                                    <button onClick={() => handleBatchCopy(idx, res.data, res.searchedId.toUpperCase())} className={`flex-grow sm:flex-grow-0 px-3 py-2 rounded text-xs font-bold tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer ${res.copied ? 'bg-green-500/10 text-green-400 border border-green-400' : res.isHistory ? 'bg-purple-900/30 text-purple-300 border border-purple-500/30 hover:bg-purple-800/50' : 'bg-cyan-900/40 text-cyan-300 border border-cyan-700/30 hover:bg-cyan-800 hover:text-white'}`}>{res.copied ? <Check /> : <Copy />} {res.copied ? 'YA COPIADO' : 'COPIAR VALIDACIÓN'}</button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleResetCard(idx); }} className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" title="Limpiar estado (Reset)"><RotateCcw /></button>
+
+                                                    <div className="flex rounded border overflow-hidden transition-all shadow-sm h-10 border-slate-700">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleCameraQuickAction(idx, res.searchedId.toUpperCase(), hasEvidence); }}
+                                                            className={`
+                                                                w-10 flex items-center justify-center transition-all relative border
+                                                                ${btnColor}
+                                                                ${res.isAnimatingCamera ? 'animate-pop' : ''}
+                                                            `}
+                                                            title={hasEvidence ? "Copiar imagen (Click)" : "Pegar imagen"}
+                                                        >
+                                                            <Camera />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleEvidenceToggle(idx); }}
+                                                            className={`
+                                                                w-6 flex items-center justify-center border-l border-black/20 hover:bg-white/10 border
+                                                                ${btnColor}
+                                                            `}
+                                                            title="Abrir panel"
+                                                        >
+                                                            <ChevronDown />
+                                                        </button>
+                                                    </div>
+
+                                                    <button onClick={(e) => { e.stopPropagation(); handleNoOk(idx); }} className={`w-10 h-10 rounded border transition-all flex items-center justify-center flex-shrink-0 ${res.isNoOk ? 'bg-red-600 text-white border-red-500 shadow-[0_0_10px_rgba(220,38,38,0.6)]' : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/30 hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-300'}`} title="Marcar NO OK / Ver Comentario"><XCircle /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleBatchCopy(idx, res.data, res.searchedId.toUpperCase()); }} className={`h-10 flex-grow sm:flex-grow-0 px-3 rounded text-xs font-bold tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer ${res.copied ? 'bg-green-500/10 text-green-400 border border-green-400' : res.isHistory ? 'bg-purple-900/30 text-purple-300 border border-purple-500/30 hover:bg-purple-800/50' : 'bg-cyan-900/40 text-cyan-300 border border-cyan-700/30 hover:bg-cyan-800 hover:text-white'}`}>{res.copied ? <Check /> : <Copy />} {res.copied ? 'COPIADO' : 'VALIDAR'}</button>
                                                 </div>
                                             )}
                                         </div>
 
+                                        {/* PANEL EVIDENCIA */}
                                         {res.isEvidenceOpen && (
                                             <div className="mt-2 border-t border-blue-500/30 pt-2 animate-in fade-in zoom-in-95 duration-300">
                                                 <div 
@@ -793,15 +737,14 @@
                                                     ) : (
                                                         <div className="space-y-2">
                                                             <p className="text-xs text-blue-300/70">Arrastra o pega (Ctrl+V) aquí</p>
-                                                            <button onClick={() => handlePasteEvidence(idx, res.searchedId.toUpperCase())} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-xs font-bold flex items-center gap-2 mx-auto">
-                                                                PEGAR DEL PORTAPAPELES
-                                                            </button>
+                                                            <button onClick={() => handlePasteEvidence(idx, res.searchedId.toUpperCase())} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-xs font-bold flex items-center gap-2 mx-auto">PEGAR (Manual)</button>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
                                         )}
 
+                                        {/* PANEL NO OK */}
                                         {res.isNoOk && res.isInputOpen && (
                                             <div className="mt-2 border-t border-red-500/30 pt-2 animate-in fade-in zoom-in-95 duration-300">
                                                 <label className="text-[10px] text-red-300 tracking-widest mb-1 block">OBSERVACIONES DE FALLA:</label>
@@ -816,7 +759,8 @@
                                             </div>
                                         )}
                                     </div>
-                                ))}
+                                    );
+                                })} 
                             </div>
                         </div>
                     </div>
