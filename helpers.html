@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ayudante V3 - Campo</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { font-family: 'Orbitron', sans-serif; }
+        .font-mono { font-family: 'Share Tech Mono', monospace; }
+        .bg-scanline {
+          background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+          background-size: 100% 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #0891b2; border-radius: 4px; border: 2px solid #0f172a; }
+        
+        .transition-all-height { transition: all 0.3s ease-in-out; }
+
+        /* ANIMACIONES */
+        @keyframes glow-pulse {
+            0%, 100% { box-shadow: 0 0 5px currentColor; }
+            50% { box-shadow: 0 0 25px currentColor, 0 0 10px currentColor inset; }
+        }
+        .animate-glow { animation: glow-pulse 1s infinite; }
+        
+        @keyframes pop-action {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop-action 0.3s ease-out; }
+    </style>
+</head>
+<body class="bg-slate-950 text-cyan-400 selection:bg-cyan-500 selection:text-slate-900 h-[100dvh] w-full overflow-hidden flex flex-col">
+    
+    <div id="root" class="w-full h-full flex flex-col"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBMY7HoErfv6xpoQsGedjZaMsSst58Q3fA",
+            authDomain: "rastreador-ids.firebaseapp.com",
+            projectId: "rastreador-ids",
+            storageBucket: "rastreador-ids.firebasestorage.app",
+            messagingSenderId: "80743721058",
+            appId: "1:80743721058:web:6035e0ce0723f07a5f493b"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Iconos
+        const Users = () => <svg className="w-6 h-6 text-fuchsia-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+        const Camera = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
+        const Trash = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+        const Search = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="16.65"/></svg>;
+        const ChevronDown = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>;
+        const ChevronUp = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>;
+        const XCircle = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>;
+        const Save = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
+        const Edit = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+        const AlertTri = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>;
+
+        const compressImage = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width, height = img.height;
+                        const MAX_WIDTH = 1280; 
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    };
+                };
+            });
+        };
+
+        const HelperApp = () => {
+            const [listName, setListName] = useState(() => localStorage.getItem('helper_list_name') || '');
+            const [cards, setCards] = useState([]);
+            const [historyData, setHistoryData] = useState({});
+            const [loading, setLoading] = useState(false);
+            const [staticData, setStaticData] = useState([]);
+            const [loadedListName, setLoadedListName] = useState('');
+            const [modalImage, setModalImage] = useState(null);
+
+            const DATA_URL = "https://cdn.jsdelivr.net/gh/lazerboy404/buscador-totems@main/csvjson.json";
+
+            useEffect(() => {
+                fetch(DATA_URL).then(res => res.json()).then(json => setStaticData(json));
+            }, []);
+
+            useEffect(() => {
+                const unsubscribe = db.collection("historial_validaciones").onSnapshot((snapshot) => {
+                    const fullData = {};
+                    snapshot.forEach(doc => fullData[doc.id] = doc.data());
+                    setHistoryData(fullData);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const toggleMenu = (index) => {
+                setCards(prev => prev.map((card, i) => i === index ? { ...card, isMenuOpen: !card.isMenuOpen } : card));
+            };
+            
+            const toggleNoOkInput = (index) => {
+                setCards(prev => prev.map((card, i) => i === index ? { ...card, isInputOpen: !card.isInputOpen } : card));
+            };
+
+            const handleObservationChange = (index, text) => {
+                setCards(prev => prev.map((card, i) => i === index ? { ...card, observationText: text } : card));
+            };
+
+            const handleCopyId = (index, text) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        setCards(prev => prev.map((c, i) => i === index ? { ...c, isIdCopied: true } : c));
+                        setTimeout(() => {
+                            setCards(prev => prev.map((c, i) => i === index ? { ...c, isIdCopied: false } : c));
+                        }, 500);
+                    });
+                }
+            };
+
+            const loadList = async () => {
+                if(!listName) return alert("Escribe un nombre de lista");
+                setLoading(true);
+                try {
+                    const doc = await db.collection("shared_lists").doc(listName.trim().toUpperCase()).get();
+                    if(doc.exists) {
+                        const rawIds = doc.data().ids || [];
+                        
+                        // CÁLCULO DE DUPLICADOS EN LA LISTA ACTUAL
+                        const idCounts = {};
+                        rawIds.forEach(id => {
+                            const norm = id.trim().toUpperCase();
+                            idCounts[norm] = (idCounts[norm] || 0) + 1;
+                        });
+
+                        const mappedCards = rawIds.map(id => {
+                            const normId = id.trim().toUpperCase();
+                            const found = staticData.find(d => String(d.ID || d.id).toUpperCase() === normId);
+                            
+                            return { 
+                                id: normId, 
+                                sector: found ? (found.SECTOR || found.sector) : "DESCONOCIDO",
+                                isDuplicate: idCounts[normId] > 1, // Marcar si es duplicado
+                                isInputOpen: false,
+                                isMenuOpen: false,
+                                isIdCopied: false,
+                                observationText: ""
+                            };
+                        });
+                        setCards(mappedCards);
+                        localStorage.setItem('helper_list_name', listName);
+                        setLoadedListName(listName.toUpperCase());
+                    } else {
+                        alert("Lista no encontrada. Pídela al Admin.");
+                        setCards([]);
+                        setLoadedListName('');
+                    }
+                } catch(e) { console.error(e); alert("Error cargando lista"); }
+                setLoading(false);
+            };
+
+            const uploadEvidenceToFirebase = async (id, compressedBlob, index) => {
+                const currentData = historyData[id] || {};
+                const currentStatus = currentData.status;
+                const newStatus = (currentStatus === "NO OK") ? "NO OK" : "OK";
+
+                setCards(prev => prev.map((c, i) => i === index ? { ...c, isAnimatingCamera: true, isMenuOpen: false } : c));
+
+                await db.collection("historial_validaciones").doc(id).set({ 
+                    evidence: compressedBlob, 
+                    status: newStatus, 
+                    fecha: new Date().toLocaleDateString('es-MX'), 
+                    timestamp: Date.now()
+                }, { merge: true });
+
+                setTimeout(() => { setCards(prev => prev.map((c, i) => i === index ? { ...c, isAnimatingCamera: false } : c)); }, 300);
+            };
+
+            const handlePasteEvidence = async (index, id) => { 
+                try {
+                    const items = await navigator.clipboard.read();
+                    for (const item of items) {
+                        if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                            const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
+                            const compressed = await compressImage(blob);
+                            uploadEvidenceToFirebase(id, compressed, index);
+                            return;
+                        }
+                    }
+                    alert("⚠️ No hay imagen en portapapeles.");
+                } catch (err) { alert("ERROR AL PEGAR: " + err.message); }
+            };
+
+            const handleDelete = (id, index) => {
+                if(confirm("¿Borrar foto?")) {
+                    db.collection("historial_validaciones").doc(id).set({ evidence: null }, { merge: true });
+                    setCards(prev => prev.map((c, i) => i === index ? { ...c, isMenuOpen: false } : c));
+                }
+            };
+
+            // BORRAR REPORTE NO OK
+            const handleDeleteReport = (id, index) => {
+                if(!confirm("¿Eliminar reporte de falla y regresar estado a OK?")) return;
+                
+                db.collection("historial_validaciones").doc(id).set({
+                    status: "OK", 
+                    observation: firebase.firestore.FieldValue.delete(), 
+                    validado: false
+                }, { merge: true });
+
+                setCards(prev => prev.map((c, i) => i === index ? { ...c, isInputOpen: false } : c));
+            };
+
+            const handleSaveObservation = (index, id, text) => {
+                if(!text) return alert("Escribe una observación.");
+                db.collection("historial_validaciones").doc(id).set({
+                    status: "NO OK", observation: text, fecha: new Date().toLocaleDateString('es-MX'), validado: true
+                }, { merge: true });
+                setCards(prev => prev.map((c, i) => i === index ? { ...c, isInputOpen: false } : c));
+            };
+
+            const handleEditObservation = (index) => {
+                setCards(prev => prev.map((c, i) => i === index ? { ...c, isInputOpen: true } : c));
+            };
+
+            return (
+                <div className="h-full w-full bg-slate-950 text-cyan-400 font-mono selection:bg-cyan-500 selection:text-slate-900 overflow-hidden relative flex flex-col">
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#083344_1px,transparent_1px),linear-gradient(to_bottom,#083344_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20 pointer-events-none"></div>
+                    <div className="absolute inset-0 pointer-events-none bg-scanline z-50 opacity-10"></div>
+
+                    {modalImage && (
+                        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setModalImage(null)}>
+                            <img src={modalImage} className="max-w-full max-h-full rounded border-2 border-fuchsia-500 shadow-[0_0_50px_rgba(217,70,239,0.5)]" />
+                            <button className="absolute top-5 right-5 text-white bg-red-600/80 hover:bg-red-600 rounded-full p-2 transition-transform hover:scale-110">
+                                <XCircle className="w-8 h-8" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="container mx-auto px-4 py-4 md:py-8 relative z-10 flex-grow flex flex-col max-w-7xl h-full min-h-0">
+
+                        <header className="mb-4 flex-shrink-0 flex flex-col md:flex-row items-center justify-between border-b border-cyan-900/50 pb-4 gap-3">
+                            <div className="flex items-center gap-3">
+                                <Users /> 
+                                <h1 className="text-xl md:text-2xl font-bold tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-purple-600 text-center md:text-left drop-shadow-[0_0_10px_rgba(232,121,249,0.5)]">
+                                    AYUDANTE V3
+                                </h1>
+                            </div>
+                            
+                            <div className="flex w-full md:w-auto gap-2">
+                                <input 
+                                    value={listName} 
+                                    onChange={(e) => setListName(e.target.value.toUpperCase())}
+                                    placeholder="NOMBRE LISTA (EJ: ZONA1)..." 
+                                    className="bg-black/50 border-2 border-cyan-400 rounded-lg p-2 text-white font-bold tracking-widest placeholder-cyan-500/80 outline-none shadow-[0_0_15px_rgba(34,211,238,0.4)] focus:shadow-[0_0_25px_rgba(34,211,238,0.6)] focus:border-cyan-300 w-full md:w-64 transition-all"
+                                />
+                                <button 
+                                    onClick={loadList} 
+                                    disabled={loading}
+                                    className="bg-cyan-900/40 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/60 hover:text-white px-4 py-2 rounded font-bold transition-all flex items-center gap-2"
+                                >
+                                    {loading ? "..." : <Search />} CARGAR
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="w-full bg-slate-900/40 border border-cyan-900/30 rounded-lg p-4 flex flex-col h-full min-h-0">
+                            
+                            <div className="overflow-y-auto pr-2 space-y-2 custom-scrollbar flex-grow relative">
+                                {cards.length === 0 && !loading && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-cyan-800/50">
+                                        <div className="opacity-50"><Search className="w-10 h-10"/></div>
+                                        <p className="tracking-widest text-sm mt-2">INGRESA NOMBRE DE LISTA</p>
+                                    </div>
+                                )}
+
+                                {cards.map((card, idx) => {
+                                    const data = historyData[card.id] || {};
+                                    const hasEvidence = !!data.evidence;
+                                    const isNoOk = data.status === "NO OK";
+                                    const isSaved = !!data.observation;
+                                    const isDuplicate = card.isDuplicate; // Nueva prop
+                                    
+                                    // ESTILOS DE COLOR
+                                    let glowColorClass = 'text-cyan-500 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]';
+                                    let containerClass = 'bg-slate-900/60 border-cyan-500/20';
+                                    let textIdClass = 'text-cyan-100';
+                                    
+                                    if (isNoOk) {
+                                        glowColorClass = 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]';
+                                        containerClass = 'bg-red-950/90 border-red-500 shadow-[inset_0_0_20px_rgba(220,38,38,0.5)]';
+                                        textIdClass = 'text-red-100 drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]';
+                                    } else if (hasEvidence) {
+                                        glowColorClass = 'text-fuchsia-500 border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.8)] animate-pulse';
+                                        containerClass = 'bg-fuchsia-950/50 border-fuchsia-500 shadow-[inset_0_0_30px_rgba(217,70,239,0.3)]';
+                                        textIdClass = 'text-fuchsia-100 drop-shadow-[0_0_8px_rgba(217,70,239,1)]';
+                                    } else if (isDuplicate) {
+                                        // ESTILO AMARILLO PARA DUPLICADOS (SI NO TIENE EVIDENCIA NI FALLA)
+                                        glowColorClass = 'text-yellow-400 border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]';
+                                        containerClass = 'bg-yellow-900/20 border-yellow-500/50';
+                                        textIdClass = 'text-yellow-100';
+                                    }
+
+                                    const btnColor = hasEvidence 
+                                        ? isNoOk 
+                                            ? 'bg-red-600 text-white border-red-500' 
+                                            : 'bg-fuchsia-600 text-white shadow-[0_0_10px_rgba(217,70,239,0.5)] border border-fuchsia-400' 
+                                        : 'bg-cyan-900/40 text-cyan-300 border border-cyan-600/30 hover:bg-cyan-800 hover:text-white';
+
+                                    return (
+                                        <div 
+                                            key={idx} 
+                                            className={`flex flex-col p-3 rounded transition-all-height gap-3 relative border ${containerClass} ${hasEvidence || isNoOk || isDuplicate ? 'animate-glow border-[2px] ' + glowColorClass : ''}`}
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex items-start gap-3 overflow-hidden w-full">
+                                                    <div className="font-mono text-xs w-6 pt-1 text-slate-500">{(idx + 1).toString().padStart(2, '0')}</div>
+                                                    
+                                                    {/* MINIATURA */}
+                                                    {hasEvidence && (
+                                                        <div 
+                                                            className="w-12 h-12 flex-shrink-0 border border-fuchsia-500 rounded bg-black overflow-hidden relative cursor-pointer group" 
+                                                            onClick={(e) => { e.stopPropagation(); setModalImage(data.evidence); }}
+                                                        >
+                                                            <img src={data.evidence} className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-fuchsia-500/30 group-hover:bg-transparent transition-all"></div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex flex-col min-w-0 flex-grow">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <button 
+                                                                onClick={() => handleCopyId(idx, card.id)}
+                                                                className={`text-lg md:text-xl font-bold text-left truncate transition-all duration-200 ${textIdClass} ${card.isIdCopied ? 'scale-110 text-white drop-shadow-[0_0_10px_white]' : ''}`}
+                                                                title="Click para copiar ID"
+                                                            >
+                                                                {card.id}
+                                                            </button>
+                                                            {isDuplicate && <span className="text-[10px] bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 px-1.5 rounded font-bold flex items-center gap-1"><AlertTri /> DUPLICADO</span>}
+                                                        </div>
+                                                        <span className="text-sm truncate block font-semibold text-slate-400">{card.sector}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-2 w-full sm:w-auto self-start sm:self-center items-stretch h-10">
+                                                    
+                                                    <div className="flex rounded border overflow-hidden transition-all shadow-sm h-10 border-slate-700">
+                                                        <button 
+                                                            onClick={() => handlePasteEvidence(idx, card.id)}
+                                                            className={`w-10 flex items-center justify-center transition-all relative border-r border-black/20 ${btnColor} ${card.isAnimatingCamera ? 'animate-pop' : ''}`}
+                                                            title="Pegar rápido (Portapapeles)"
+                                                        >
+                                                            <Camera />
+                                                        </button>
+                                                        
+                                                        {hasEvidence && (
+                                                            <button 
+                                                                onClick={() => toggleMenu(idx)}
+                                                                className={`w-6 flex items-center justify-center hover:bg-white/10 ${btnColor}`}
+                                                                title="Opciones (Borrar)"
+                                                            >
+                                                                <ChevronDown />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <button onClick={() => toggleNoOkInput(idx)} className={`w-10 h-10 rounded border transition-all flex items-center justify-center flex-shrink-0 ${isNoOk ? 'bg-red-600 text-white border-red-500 shadow-[0_0_10px_rgba(220,38,38,0.6)]' : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/30 hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-300'}`}>
+                                                        <XCircle />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {card.isMenuOpen && hasEvidence && (
+                                                <div className="mt-2 border-t border-cyan-500/30 pt-2 animate-in fade-in zoom-in-95 duration-300">
+                                                    <div className="flex gap-2 items-center bg-black/40 p-2 rounded border border-cyan-500/20 justify-end">
+                                                        <button onClick={() => handleDelete(card.id, idx)} className="px-4 py-2 bg-red-900/50 text-red-400 hover:bg-red-900 border border-red-500/30 rounded text-xs font-bold flex items-center gap-1 transition-colors w-full justify-center">
+                                                            <Trash /> BORRAR EVIDENCIA
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {(card.isInputOpen || (isNoOk && card.isInputOpen)) && (
+                                                <div className="mt-2 border-t border-red-500/30 pt-2 animate-in fade-in zoom-in-95 duration-300">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <label className="text-[10px] text-red-300 tracking-widest block">OBSERVACIONES DE FALLA:</label>
+                                                        {isNoOk && (
+                                                            <button onClick={() => handleDeleteReport(card.id, idx)} className="text-[10px] bg-red-900/50 text-red-200 border border-red-500/30 px-2 rounded hover:bg-red-800 flex items-center gap-1">
+                                                                <Trash className="w-3 h-3"/> BORRAR REPORTE
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <input 
+                                                            type="text" 
+                                                            value={card.observationText || data.observation || ''} 
+                                                            onChange={(e) => handleObservationChange(idx, e.target.value)} 
+                                                            disabled={isSaved && !card.isInputOpen} 
+                                                            placeholder="Escribe la causa del NO OK..." 
+                                                            className="flex-grow bg-red-950/50 border border-red-500/50 rounded px-2 py-1 text-sm text-white placeholder-red-300/50 outline-none focus:ring-1 focus:ring-red-500"
+                                                        />
+                                                        {isSaved ? (
+                                                            <button onClick={() => handleEditObservation(idx)} className="bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 px-3 py-1 rounded text-xs font-bold hover:bg-cyan-800 flex items-center gap-1"><Edit /> EDITAR</button>
+                                                        ) : (
+                                                            <button onClick={() => handleSaveObservation(idx, card.id, card.observationText || data.observation)} className="bg-green-900/50 text-green-400 border border-green-500/50 px-3 py-1 rounded text-xs font-bold hover:bg-green-800 flex items-center gap-1"><Save /> GUARDAR</button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HelperApp />);
+    </script>
+</body>
+</html>
