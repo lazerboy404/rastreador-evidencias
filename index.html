@@ -1,21 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script>
-    // --- SEGURIDAD SIMPLE ---
-    // El navegador detiene la carga hasta que respondan el prompt
-    var pass = prompt("🔒 ZONA RESTRINGIDA (ADMIN)\nIntroduce la clave de acceso:");
-
-    // CAMBIA "1234" POR TU CONTRASEÑA REAL
-    if (pass !== "chkdskmbr777") { 
-        // Si la clave está mal o le dan Cancelar...
-        // Los redirigimos inmediatamente a la página de ayudantes
-        window.location.href = "helpers.html"; 
-        
-        // Detenemos la ejecución para que no cargue el resto del admin
-        throw new Error("Acceso Denegado");
-    }
-</script>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rastreador V3 (Admin Final)</title>
@@ -393,8 +379,35 @@
             };
 
             const handleObservationChange = (index, text) => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, observationText: text } : res )); };
-            const handleSaveObservation = (index, id, text) => { db.collection("historial_validaciones").doc(id).set({ fecha: getFormattedDate(), validado: true, status: "NO OK", observation: text }, { merge: true }); setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isObservationSaved: true, isInputOpen: false } : res )); };
-            const handleEditObservation = (index) => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, isObservationSaved: false } : res )); };
+            
+            // --- CORRECCION #1: FUNCIONES DE GUARDADO ---
+            const handleSaveObservation = (index, id, text) => { 
+                db.collection("historial_validaciones").doc(id).set({ 
+                    fecha: getFormattedDate(), 
+                    validado: true, 
+                    status: "NO OK", 
+                    observation: text 
+                }, { merge: true }); 
+                
+                setBatchResults(prev => prev.map((res, i) => 
+                    i === index ? { 
+                        ...res, 
+                        isObservationSaved: true, 
+                        isInputOpen: true 
+                    } : res 
+                )); 
+            };
+
+            const handleEditObservation = (index, currentText) => {
+                setBatchResults(prev => prev.map((res, i) => 
+                    i === index ? { 
+                        ...res, 
+                        isObservationSaved: false, 
+                        isInputOpen: true,
+                        observationText: currentText 
+                    } : res 
+                )); 
+            };
 
             const handleBatchCopy = (index, itemData, id) => {
                 setActiveRow(index);
@@ -819,15 +832,24 @@
                                             </div>
                                         )}
 
+                                        {/* --- CORRECCION #1: LOGICA DE BOTONES EDITAR/GUARDAR --- */}
                                         {(res.isInputOpen || (isNoOk && res.isInputOpen)) && (
                                             <div className="mt-2 border-t border-red-500/30 pt-2 animate-in fade-in zoom-in-95 duration-300">
                                                 <label className="text-[10px] text-red-300 tracking-widest mb-1 block">OBSERVACIONES DE FALLA:</label>
                                                 <div className="flex gap-2">
-                                                    <input type="text" value={res.observationText || cloudRecord.observation || ''} onChange={(e) => handleObservationChange(idx, e.target.value)} disabled={res.isObservationSaved && !res.isInputOpen} placeholder="Escribe la causa del NO OK..." className={`flex-grow bg-red-950/50 border rounded px-2 py-1 text-sm text-white placeholder-red-300/50 outline-none focus:ring-1 focus:ring-red-500 ${res.isObservationSaved ? 'border-transparent opacity-80 cursor-not-allowed' : 'border-red-500/50'}`}/>
-                                                    {cloudRecord.observation ? (
-                                                        <button onClick={() => handleEditObservation(idx)} className="bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 px-3 py-1 rounded text-xs font-bold hover:bg-cyan-800 flex items-center gap-1"><Edit /> EDITAR</button>
-                                                    ) : (
+                                                    <input 
+                                                        type="text" 
+                                                        value={res.observationText !== undefined ? res.observationText : (cloudRecord.observation || '')} 
+                                                        onChange={(e) => handleObservationChange(idx, e.target.value)} 
+                                                        disabled={res.isObservationSaved !== false && !!cloudRecord.observation} 
+                                                        placeholder="Escribe la causa del NO OK..." 
+                                                        className={`flex-grow bg-red-950/50 border rounded px-2 py-1 text-sm text-white placeholder-red-300/50 outline-none focus:ring-1 focus:ring-red-500 ${res.isObservationSaved !== false && cloudRecord.observation ? 'border-transparent opacity-80 cursor-not-allowed' : 'border-red-500/50'}`}
+                                                    />
+                                                    
+                                                    {(res.isObservationSaved === false || !cloudRecord.observation) ? (
                                                         <button onClick={() => handleSaveObservation(idx, res.searchedId.toUpperCase(), res.observationText)} className="bg-green-900/50 text-green-400 border border-green-500/50 px-3 py-1 rounded text-xs font-bold hover:bg-green-800 flex items-center gap-1"><Save /> GUARDAR</button>
+                                                    ) : (
+                                                        <button onClick={() => handleEditObservation(idx, cloudRecord.observation)} className="bg-cyan-900/50 text-cyan-300 border border-cyan-500/30 px-3 py-1 rounded text-xs font-bold hover:bg-cyan-800 flex items-center gap-1"><Edit /> EDITAR</button>
                                                     )}
                                                 </div>
                                             </div>
