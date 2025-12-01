@@ -1,7 +1,16 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  
+    <script>
+    // --- SEGURIDAD SIMPLE ---
+    var pass = prompt("🔒 ZONA RESTRINGIDA (ADMIN)\nIntroduce la clave de acceso:");
+
+    // CAMBIA "1234" POR TU CONTRASEÑA REAL
+    if (pass !== "chkdskmbr777") { 
+        window.location.href = "helpers.html"; 
+        throw new Error("Acceso Denegado");
+    }
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rastreador V3 (Admin Final)</title>
@@ -393,7 +402,8 @@
                     i === index ? { 
                         ...res, 
                         isObservationSaved: true, 
-                        isInputOpen: true 
+                        isInputOpen: true,
+                        observationText: undefined // Libera el input para que vuelva a leer de la nube
                     } : res 
                 )); 
             };
@@ -404,7 +414,7 @@
                         ...res, 
                         isObservationSaved: false, 
                         isInputOpen: true,
-                        observationText: currentText 
+                        observationText: currentText // Carga el texto actual para editar
                     } : res 
                 )); 
             };
@@ -425,17 +435,35 @@
                 setBatchResults(prev => prev.map((res, i) => {
                     if (i !== index) return res;
                     if (res.isNoOk) { return { ...res, isInputOpen: !res.isInputOpen }; }
-                    return { ...res, isNoOk: true, copied: false, idCopiedEffect: false, isBlueEffect: false, observationText: res.observationText || "", isObservationSaved: false, isInputOpen: true };
+                    // CORRECCION AQUI: No inicializar con "" para que lea la nube por defecto
+                    return { ...res, isNoOk: true, copied: false, idCopiedEffect: false, isBlueEffect: false, isObservationSaved: false, isInputOpen: true };
                 }));
             };
 
-            const handleResetCard = (index) => {
+            // --- FUNCIÓN RESET MEJORADA: BORRA EL ESTADO ROJO DE LA NUBE ---
+            const handleResetCard = async (index, id) => { 
+                if(!confirm("¿Restablecer tarjeta? Se eliminará el estado 'NO OK' y las observaciones.")) return;
+
                 setActiveRow(index);
+
+                // ACTUALIZACIÓN EN NUBE
+                try {
+                    await db.collection("historial_validaciones").doc(id).set({
+                        status: "OK",       
+                        observation: "",    
+                        validado: false     
+                    }, { merge: true });
+                } catch(e) {
+                    console.error("Error al resetear:", e);
+                }
+
+                // ACTUALIZACIÓN LOCAL
                 setBatchResults(prev => prev.map((res, i) => 
                     i === index ? { 
                         ...res, 
                         copied: false, isNoOk: false, isBlueEffect: false, idCopiedEffect: false,
-                        observationText: "", isObservationSaved: false, isInputOpen: false, isEvidenceOpen: false, imageCopied: false,
+                        observationText: undefined, // Reset lectura nube
+                        isObservationSaved: false, isInputOpen: false, isEvidenceOpen: false, imageCopied: false,
                         isCollapsed: false 
                     } : res
                 ));
@@ -456,7 +484,7 @@
                             searchedId: id, data: found, copied: false, isDuplicate: isDuplicateBatch, isHistory: !!cloudData,
                             idCopiedEffect: false, isBlueEffect: false, isAnimating: false,
                             isNoOk: cloudData ? cloudData.status === "NO OK" : false,
-                            observationText: cloudData ? cloudData.observation : "",
+                            observationText: undefined, // CORRECCION CRITICA: Undefined para leer nube
                             isObservationSaved: cloudData ? !!cloudData.observation : false,
                             isInputOpen: false, isEvidenceOpen: false, evidenceCopiedFeedback: false, imageCopied: false,
                             isCollapsed: false 
@@ -516,6 +544,10 @@
                 const hasEvidence = !!cloudRecord.evidence;
 
                 if (isNoOk) return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]';
+                
+                // --- MODIFICACION FEATURE 1: YA NO COLOREAMOS ROSA LA TARJETA (Solo el botón de cámara lo hará) ---
+                // if (hasEvidence && !res.copied) return 'text-fuchsia-500 border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.8)] animate-pulse';
+
                 if (res.isBlueEffect && !res.copied) return 'text-blue-500 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]';
                 if (res.idCopiedEffect && !res.isHistory && !res.copied && !res.isBlueEffect) return 'text-fuchsia-500 border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.6)]';
                 if (res.copied) return 'text-green-500 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]';
@@ -718,17 +750,16 @@
                                             flex flex-col p-3 rounded transition-all-height gap-3 relative
                                             ${isActive ? `animate-glow border-[3px] ${glowColorClass}` : 'border'}
                                             ${isNoOk
+                                                // --- FEATURE RECUPERADA: ROJO INTENSO SI ES TACHE (HELPER) ---
                                                 ? 'bg-red-950/90 border-red-500 shadow-[inset_0_0_20px_rgba(220,38,38,0.5)]'
+                                                
                                                 : res.isDuplicate
                                                     ? 'bg-yellow-900/10 border-yellow-500/30'
                                                     
-                                                    // MODIFICACION FEATURE 1: ELIMINAMOS EL FONDO FUCHSIA DE LA TARJETA
-                                                    // : hasEvidence && !res.copied 
-                                                    //     ? 'bg-fuchsia-950/50 border-fuchsia-500 shadow-[inset_0_0_30px_rgba(217,70,239,0.3)]'
-
+                                                    // SIN COLOR ROSA PARA EVIDENCE (OK) - SE MANTIENE AZUL/NORMAL
                                                     : res.isBlueEffect && !res.copied 
                                                         ? 'bg-blue-900/60 border-blue-500 shadow-[inset_0_0_30px_rgba(59,130,246,0.4)]'
-                                                        : res.idCopiedEffect && !res.isHistory && !res.copied 
+                                                        : res.idCopiedEffect && !res.isHistory && !res.copied && !res.isBlueEffect 
                                                             ? 'bg-fuchsia-900/60 border-fuchsia-500 shadow-[inset_0_0_20px_rgba(232,121,249,0.3)]'
                                                             : res.copied 
                                                                 ? 'bg-slate-950/90 border-green-400/50 opacity-90' 
@@ -777,9 +808,9 @@
                                                                 text-lg md:text-xl font-bold text-left truncate transition-all duration-75
                                                                 ${res.isAnimating ? 'scale-110 text-white drop-shadow-[0_0_10px_rgba(255,255,255,1)]' : 'scale-100'} 
                                                                 ${isNoOk 
+                                                                    // TEXTO ROJO SI ES TACHE
                                                                     ? 'text-red-100 drop-shadow-[0_0_5px_rgba(220,38,38,0.8)]'
-                                                                    // : hasEvidence && !res.copied
-                                                                    //    ? 'text-fuchsia-100 drop-shadow-[0_0_8px_rgba(217,70,239,1)]'
+                                                                    
                                                                     : res.isBlueEffect && !res.copied
                                                                         ? 'text-blue-100 drop-shadow-[0_0_8px_rgba(59,130,246,1)]'
                                                                         : res.idCopiedEffect 
@@ -820,7 +851,7 @@
                                                         <ChevronUp className="w-4 h-4"/>
                                                     </button>
 
-                                                    <button onClick={(e) => { e.stopPropagation(); handleResetCard(idx); }} className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" title="Limpiar estado (Reset)"><RotateCcw /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleResetCard(idx, res.searchedId.toUpperCase()); }} className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" title="Limpiar estado (Reset)"><RotateCcw /></button>
 
                                                     <div className="flex rounded border overflow-hidden transition-all shadow-sm h-10 border-slate-700">
                                                         <button 
@@ -887,6 +918,9 @@
                                                 <div className="flex gap-2">
                                                     <input 
                                                         type="text" 
+                                                        // --- CORRECCIÓN CRÍTICA AQUI ---
+                                                        // Si observationText es undefined (no has escrito nada), usa cloudRecord.observation
+                                                        // Si has escrito algo, usa observationText
                                                         value={res.observationText !== undefined ? res.observationText : (cloudRecord.observation || '')} 
                                                         onChange={(e) => handleObservationChange(idx, e.target.value)} 
                                                         disabled={res.isObservationSaved !== false && !!cloudRecord.observation} 
@@ -918,4 +952,3 @@
     </script>
 </body>
 </html>
-
