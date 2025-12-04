@@ -471,51 +471,53 @@
     setManualCollapse(true); 
     saveToHistory(batchInput);
 
-    // 2. Obtenemos IDs
+    // 2. Obtenemos IDs (Lista cruda con posibles repetidos, para visualización)
     const rawIds = batchInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
 
-    // 3. SUBIDA A FIREBASE (Para que el ayudante los vea)
+    // 3. SUBIDA A FIREBASE OPTIMIZADA (Sin repetidos)
     try {
         const batch = db.batch(); 
-        rawIds.forEach(id => {
-            const docRef = db.collection("historial_validaciones").doc(id.toUpperCase());
-            // Registramos o actualizamos fecha, respetando status NO OK
+        
+        // --- CAMBIO CLAVE: CRAMOS UNA LISTA UNICA SOLO PARA LA SUBIDA ---
+        const uniqueIdsForUpload = [...new Set(rawIds.map(id => id.toUpperCase()))];
+
+        uniqueIdsForUpload.forEach(id => {
+            const docRef = db.collection("historial_validaciones").doc(id);
+            // Registramos fecha sin tocar status ni borrar fotos
             batch.set(docRef, {
                 fecha: getFormattedDate(),
                 timestamp: Date.now()
             }, { merge: true });
         });
+
         await batch.commit(); 
     } catch (error) { console.error(error); }
 
-    // 4. LOGICA VISUAL (Aquí estaba el detalle)
+    // 4. LOGICA VISUAL (Usamos rawIds para que SÍ veas los repetidos en amarillo)
     setTimeout(() => {
         const seenInBatch = new Set();
         
         const results = rawIds.map(id => {
             const normId = id.toUpperCase();
+            
+            // Aquí detectamos si está repetido visualmente
             const isDuplicateBatch = seenInBatch.has(normId); 
             seenInBatch.add(normId);
             
             const found = data.find(item => String(item.ID || item.id || item.Id).trim().toUpperCase() === normId);
-            const cloudRecord = historyData[normId]; // Datos actuales de la nube
+            
+            // Leemos la "foto" vieja de la base de datos (antes del update)
+            const cloudRecord = historyData[normId]; 
 
-            // --- CORRECCIÓN AQUÍ ---
-            // Verificamos si YA existía en 'historyData' al momento de procesar.
-            // Si 'cloudRecord' tiene datos, es que ya estaba registrado antes.
-            // Si es undefined, es nuevo (aunque lo acabamos de subir en el paso 3, 
-            // la variable historyData local aún no se ha refrescado, lo cual es PERFECTO para lo que quieres).
+            // Verificamos si existía ANTES de este proceso para pintarlo morado o no
             const wasAlreadyRegistered = !!cloudRecord; 
 
             return { 
                 searchedId: id, 
                 data: found, 
                 copied: false, 
-                isDuplicate: isDuplicateBatch, 
-                
-                // SOLO marcamos como historial (morado) si ya existía antes
-                isHistory: wasAlreadyRegistered, 
-                
+                isDuplicate: isDuplicateBatch, // Amarillo si está repetido en la lista
+                isHistory: wasAlreadyRegistered, // Morado si ya estaba registrado antes
                 idCopiedEffect: false, 
                 isBlueEffect: false, 
                 isAnimating: false,
