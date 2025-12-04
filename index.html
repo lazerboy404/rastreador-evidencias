@@ -462,30 +462,80 @@
                 ));
             };
 
-            const handleBatchProcess = () => {
-                if (!batchInput.trim()) return;
-                setBatchStatus('processing'); setBatchResults([]); setManualCollapse(true); saveToHistory(batchInput);
-                const rawIds = batchInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
-                const seenInBatch = new Set();
-                setTimeout(() => {
-                    const results = rawIds.map(id => {
-                        const normId = id.toUpperCase();
-                        const isDuplicateBatch = seenInBatch.has(normId); seenInBatch.add(normId);
-                        const found = data.find(item => String(item.ID || item.id || item.Id).trim().toUpperCase() === normId);
-                        const cloudData = historyData[normId];
-                        return { 
-                            searchedId: id, data: found, copied: false, isDuplicate: isDuplicateBatch, isHistory: !!cloudData,
-                            idCopiedEffect: false, isBlueEffect: false, isAnimating: false,
-                            isNoOk: cloudData ? cloudData.status === "NO OK" : false,
-                            observationText: undefined, // CORRECCION CRITICA: Undefined para leer nube
-                            isObservationSaved: cloudData ? !!cloudData.observation : false,
-                            isInputOpen: false, isEvidenceOpen: false, evidenceCopiedFeedback: false, imageCopied: false,
-                            isCollapsed: false 
-                        }; 
-                    });
-                    setBatchResults(results); setBatchStatus('done');
-                }, 800);
-            };
+            const handleBatchProcess = async () => {
+    if (!batchInput.trim()) return;
+    
+    // 1. Preparamos la interfaz (Bloqueamos botón, limpiamos resultados previos)
+    setBatchStatus('processing'); 
+    setBatchResults([]); 
+    setManualCollapse(true); 
+    saveToHistory(batchInput);
+
+    // 2. Obtenemos los IDs limpios en el orden original
+    const rawIds = batchInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
+
+    // 3. REGISTRO SEGURO EN FIREBASE (Sin tocar el Status ni Evidencia)
+    try {
+        const batch = db.batch(); 
+        
+        rawIds.forEach(id => {
+            const docRef = db.collection("historial_validaciones").doc(id.toUpperCase());
+            
+            // { merge: true } es la clave: 
+            // Si ya existe el ID con status "NO OK", LO RESPETA y solo actualiza la hora.
+            batch.set(docRef, {
+                fecha: getFormattedDate(),
+                timestamp: Date.now()
+            }, { merge: true });
+        });
+
+        await batch.commit(); // Enviamos todo a la nube de golpe
+        
+    } catch (error) {
+        console.error("Error al registrar:", error);
+    }
+
+    // 4. Renderizamos la lista visualmente
+    setTimeout(() => {
+        const seenInBatch = new Set();
+        
+        const results = rawIds.map(id => {
+            const normId = id.toUpperCase();
+            const isDuplicateBatch = seenInBatch.has(normId); 
+            seenInBatch.add(normId);
+            
+            // Buscamos datos estáticos (Sector, etc)
+            const found = data.find(item => String(item.ID || item.id || item.Id).trim().toUpperCase() === normId);
+            
+            // Leemos el estado actual (Tu App ya sabe si es ROJO desde antes de hacer click)
+            const cloudRecord = historyData[normId]; 
+
+            return { 
+                searchedId: id, 
+                data: found, 
+                copied: false, 
+                isDuplicate: isDuplicateBatch, 
+                isHistory: true, // Ahora siempre es true porque acabamos de subirlo
+                idCopiedEffect: false, 
+                isBlueEffect: false, 
+                isAnimating: false,
+                // AQUÍ SE MANTIENE EL COLOR ROJO SI YA EXISTÍA:
+                isNoOk: cloudRecord ? cloudRecord.status === "NO OK" : false,
+                observationText: undefined, 
+                // AQUÍ SE RECUPERA EL COMENTARIO SI YA EXISTÍA:
+                isObservationSaved: cloudRecord ? !!cloudRecord.observation : false,
+                isInputOpen: false, 
+                isEvidenceOpen: false, 
+                evidenceCopiedFeedback: false, 
+                imageCopied: false,
+                isCollapsed: false 
+            }; 
+        });
+        
+        setBatchResults(results); 
+        setBatchStatus('done');
+    }, 500);
+};
 
             const handleCleanInput = () => { setLastDeletedInput(batchInput); setBatchInput(''); setBatchResults([]); setBatchStatus('idle'); setManualCollapse(false); saveToHistory(''); setActiveRow(-1); };
             const handleRestoreInput = () => { if (lastDeletedInput) { setBatchInput(lastDeletedInput); saveToHistory(lastDeletedInput); } };
