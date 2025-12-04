@@ -465,37 +465,30 @@
             const handleBatchProcess = async () => {
     if (!batchInput.trim()) return;
     
-    // 1. Preparamos la interfaz (Bloqueamos botón, limpiamos resultados previos)
+    // 1. Preparamos interfaz
     setBatchStatus('processing'); 
     setBatchResults([]); 
     setManualCollapse(true); 
     saveToHistory(batchInput);
 
-    // 2. Obtenemos los IDs limpios en el orden original
+    // 2. Obtenemos IDs
     const rawIds = batchInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s !== '');
 
-    // 3. REGISTRO SEGURO EN FIREBASE (Sin tocar el Status ni Evidencia)
+    // 3. SUBIDA A FIREBASE (Para que el ayudante los vea)
     try {
         const batch = db.batch(); 
-        
         rawIds.forEach(id => {
             const docRef = db.collection("historial_validaciones").doc(id.toUpperCase());
-            
-            // { merge: true } es la clave: 
-            // Si ya existe el ID con status "NO OK", LO RESPETA y solo actualiza la hora.
+            // Registramos o actualizamos fecha, respetando status NO OK
             batch.set(docRef, {
                 fecha: getFormattedDate(),
                 timestamp: Date.now()
             }, { merge: true });
         });
+        await batch.commit(); 
+    } catch (error) { console.error(error); }
 
-        await batch.commit(); // Enviamos todo a la nube de golpe
-        
-    } catch (error) {
-        console.error("Error al registrar:", error);
-    }
-
-    // 4. Renderizamos la lista visualmente
+    // 4. LOGICA VISUAL (Aquí estaba el detalle)
     setTimeout(() => {
         const seenInBatch = new Set();
         
@@ -504,25 +497,30 @@
             const isDuplicateBatch = seenInBatch.has(normId); 
             seenInBatch.add(normId);
             
-            // Buscamos datos estáticos (Sector, etc)
             const found = data.find(item => String(item.ID || item.id || item.Id).trim().toUpperCase() === normId);
-            
-            // Leemos el estado actual (Tu App ya sabe si es ROJO desde antes de hacer click)
-            const cloudRecord = historyData[normId]; 
+            const cloudRecord = historyData[normId]; // Datos actuales de la nube
+
+            // --- CORRECCIÓN AQUÍ ---
+            // Verificamos si YA existía en 'historyData' al momento de procesar.
+            // Si 'cloudRecord' tiene datos, es que ya estaba registrado antes.
+            // Si es undefined, es nuevo (aunque lo acabamos de subir en el paso 3, 
+            // la variable historyData local aún no se ha refrescado, lo cual es PERFECTO para lo que quieres).
+            const wasAlreadyRegistered = !!cloudRecord; 
 
             return { 
                 searchedId: id, 
                 data: found, 
                 copied: false, 
                 isDuplicate: isDuplicateBatch, 
-                isHistory: true, // Ahora siempre es true porque acabamos de subirlo
+                
+                // SOLO marcamos como historial (morado) si ya existía antes
+                isHistory: wasAlreadyRegistered, 
+                
                 idCopiedEffect: false, 
                 isBlueEffect: false, 
                 isAnimating: false,
-                // AQUÍ SE MANTIENE EL COLOR ROJO SI YA EXISTÍA:
                 isNoOk: cloudRecord ? cloudRecord.status === "NO OK" : false,
                 observationText: undefined, 
-                // AQUÍ SE RECUPERA EL COMENTARIO SI YA EXISTÍA:
                 isObservationSaved: cloudRecord ? !!cloudRecord.observation : false,
                 isInputOpen: false, 
                 isEvidenceOpen: false, 
