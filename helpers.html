@@ -165,7 +165,7 @@
                                 isInputOpen: false,
                                 isMenuOpen: false,
                                 isIdCopied: false,
-                                observationText: ""
+                                observationText: undefined
                             };
                         });
                         setCards(mappedCards);
@@ -240,7 +240,7 @@
                     timestamp: Date.now() // <--- ESTE CAMPO FALTABA
                 }, { merge: true });
                 
-                setCards(prev => prev.map((c, i) => i === index ? { ...c, isInputOpen: false } : c));
+                setCards(prev => prev.map((c, i) => i === index ? { ...c, isInputOpen: false, observationText: undefined} : c));
             };
 
             const handleEditObservation = (index) => {
