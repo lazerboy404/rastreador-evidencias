@@ -383,11 +383,9 @@
             const handleSaveObservation = (index, id, text) => { 
                 const textToSend = text || "";
                 db.collection("historial_validaciones").doc(id).set({ 
-                    fecha: getFormattedDate(), 
                     validado: true, 
                     status: "NO OK", 
-                    observation: textToSend, 
-                    timestamp: Date.now()
+                    observation: textToSend,
                 }, { merge: true }); 
                 
                 setBatchResults(prev => prev.map((res, i) => 
@@ -481,12 +479,12 @@
         // --- CAMBIO CLAVE: CRAMOS UNA LISTA UNICA SOLO PARA LA SUBIDA ---
         const uniqueIdsForUpload = [...new Set(rawIds.map(id => id.toUpperCase()))];
 
-        uniqueIdsForUpload.forEach(id => {
+        uniqueIdsForUpload.forEach((id, index) => {
             const docRef = db.collection("historial_validaciones").doc(id);
             // Registramos fecha sin tocar status ni borrar fotos
             batch.set(docRef, {
                 fecha: getFormattedDate(),
-                timestamp: Date.now()
+                timestamp: Date.now() + index
             }, { merge: true });
         });
 
