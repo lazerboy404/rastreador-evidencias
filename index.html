@@ -1,16 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script>
-    // --- SEGURIDAD SIMPLE ---
-    var pass = prompt("🔒 ZONA RESTRINGIDA (ADMIN)\nIntroduce la clave de acceso:");
-
-    // CAMBIA "1234" POR TU CONTRASEÑA REAL
-    if (pass !== "chkdskmbr777") { 
-        window.location.href = "helpers.html"; 
-        throw new Error("Acceso Denegado");
-    }
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rastreador V3 (Admin Final)</title>
@@ -391,19 +381,22 @@
             const handleObservationChange = (index, text) => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, observationText: text } : res )); };
             
             const handleSaveObservation = (index, id, text) => { 
+                const textToSend = text || "";
                 db.collection("historial_validaciones").doc(id).set({ 
                     fecha: getFormattedDate(), 
                     validado: true, 
                     status: "NO OK", 
-                    observation: text 
+                    observation: textToSend, 
+                    timestamp: Date.now()
                 }, { merge: true }); 
                 
                 setBatchResults(prev => prev.map((res, i) => 
                     i === index ? { 
                         ...res, 
-                        isObservationSaved: true, 
-                        isInputOpen: true,
-                        observationText: undefined // Libera el input para que vuelva a leer de la nube
+                        isObservationSaved: true,
+                        isInputOpen: false,
+                        observationText: undefined, // Libera el input para que vuelva a leer de la nube
+                        isNoOk: true
                     } : res 
                 )); 
             };
