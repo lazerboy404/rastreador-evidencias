@@ -191,7 +191,6 @@
                     evidence: compressedBlob, 
                     status: newStatus, 
                     fecha: new Date().toLocaleDateString('es-MX'), 
-                    timestamp: Date.now()
                 }, { merge: true });
 
                 setTimeout(() => { setCards(prev => prev.map((c, i) => i === index ? { ...c, isAnimatingCamera: false } : c)); }, 300);
@@ -237,7 +236,6 @@
                     observation: text, 
                     fecha: new Date().toLocaleDateString('es-MX'), 
                     validado: true,
-                    timestamp: Date.now() // <--- ESTE CAMPO FALTABA
                 }, { merge: true });
                 
                 setCards(prev => prev.map((c, i) => i === index ? { ...c, isInputOpen: false, observationText: undefined} : c));
