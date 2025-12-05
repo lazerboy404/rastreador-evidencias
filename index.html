@@ -12,8 +12,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -769,7 +769,7 @@
             key={idx} 
             onClick={() => toggleCollapse(idx)}
             className={`
-                flex items-center justify-between p-2 rounded mb-2 cursor-pointer transition-all border
+                flex items-center justify-between p-2 rounded mb-2 cursor-pointer transition-colors duration-200 border
                 ${isNoOk 
                     ? 'bg-red-950/90 border-red-500 shadow-[inset_0_0_10px_rgba(220,38,38,0.5)]'
                     : res.copied 
@@ -825,7 +825,7 @@
                                         onClick={() => setActiveRow(idx)}
                                         className={`
                                             flex flex-col p-3 rounded transition-all-height gap-3 relative
-                                            ${isActive ? `animate-glow border-[3px] ${glowColorClass}` : 'border'}
+                                            ${isActive ? `border-[4px] ${glowColorClass}` : 'border'}
                                             ${isNoOk
                                                 // --- FEATURE RECUPERADA: ROJO INTENSO SI ES TACHE (HELPER) ---
                                                 ? 'bg-red-950/90 border-red-500 shadow-[inset_0_0_20px_rgba(220,38,38,0.5)]'
