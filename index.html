@@ -370,7 +370,7 @@
                         if (i === index) {
                             if (res.isNoOk) return { ...res, isAnimating: true }; 
                             if (isCopiedGreen || res.isBlueEffect) return { ...res, copied: false, isBlueEffect: true, idCopiedEffect: true, isAnimating: true };
-                            return { ...res, copied: false, isBlueEffect: false, idCopiedEffect: true, isAnimating: true };
+                            return { ...res, copied: false, isBlueEffect: false, idCopiedEffect: false, isAnimating: true };
                         }
                         return res;
                     }));
@@ -683,10 +683,10 @@
                         <div className="flex items-center gap-3 text-xs flex-wrap justify-end">
                             <button onClick={handleRestoreCloudSession} className="px-3 py-1 rounded border flex items-center gap-2 transition-all cursor-pointer bg-cyan-900/40 text-cyan-300 border-cyan-500/30 hover:bg-cyan-900/60 hover:text-white"><CloudDownload /> RESTAURAR</button>
                             <button onClick={handleCopyNoEvidence} className={`px-3 py-1 rounded border flex items-center gap-2 transition-all cursor-pointer font-bold ${copiedNoEvidence ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-950/40 text-orange-400 border-orange-500/50 hover:bg-orange-900/60 hover:text-white'}`}><AlertCircle /> {copiedNoEvidence ? 'COPIADO' : 'SIN EVIDENCIA'}</button>
-                            {historyList.length > 0 && <button onClick={handleExportExcel} className="px-3 py-1 rounded border border-green-500/50 bg-green-950/40 text-green-400 hover:bg-green-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer font-bold shadow-[0_0_10px_rgba(74,222,128,0.2)]"><Download /> EXCEL</button>}
+                            {historyList.length > 0 && <button onClick={handleExportExcel} className="px-3 py-1 rounded border border-green-500 bg-slate-900 text-green-400 hover:bg-green-900 hover:text-white flex items-center gap-2 transition-colors cursor-pointer font-bold shadow-[0_0_10px_rgba(34,197,94,0.5)]"><Download /> EXCEL</button>}
                             {historyList.length > 0 && <button onClick={handleClearAllEvidence} className="px-3 py-1 rounded border border-orange-500/50 bg-orange-950/40 text-orange-400 hover:bg-orange-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"><ImageOff /> FOTOS</button>}
                             {historyList.length > 0 && <button onClick={handleClearHistory} className="px-3 py-1 rounded border border-red-500/50 bg-red-950/40 text-red-400 hover:bg-red-900/60 hover:text-white flex items-center gap-2 transition-colors cursor-pointer"><Trash /> BORRAR</button>}
-                            <div className={`px-3 py-1 rounded border flex items-center gap-2 transition-colors ${dbConnected ? 'bg-green-900/30 border-green-500/30 text-green-400' : 'bg-red-900/30 border-red-500/30 text-red-400'}`}><Cloud /> {dbConnected ? `ONLINE (${historyList.length})` : 'OFFLINE'}</div>
+                            <div className={`px-3 py-1 rounded border flex items-center gap-2 transition-colors ${dbConnected ? 'bg-slate-900 border-green-500 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-900/30 border-red-500/30 text-red-400'}`}><Cloud /> {dbConnected ? `ONLINE (${historyList.length})` : 'OFFLINE'}</div>
                             
                             <div className="px-3 py-1 rounded border border-red-500/50 bg-red-950/60 text-red-400 flex items-center gap-2 font-bold shadow-[0_0_10px_rgba(239,68,68,0.3)]">
                                 <XCircle className="w-4 h-4" /> NO OK: {noOkCount}
@@ -732,7 +732,7 @@
                                     <div className="flex flex-wrap gap-3 text-[10px] md:text-xs font-mono items-center justify-end flex-grow">
                                         {stats.duplicates > 0 && <span className="text-yellow-300 bg-yellow-900/20 px-2 py-1 rounded border border-yellow-500/20 whitespace-nowrap">DUPLICADOS: {stats.duplicates}</span>}
                                         {stats.inHistory > 0 && <span className="text-purple-300 bg-purple-900/20 px-2 py-1 rounded border border-purple-500/20 flex items-center gap-1"><HistoryIcon /> EN NUBE: {stats.inHistory}</span>}
-                                        {stats.processed > 0 && <span className="text-green-400 bg-green-900/20 px-2 py-1 rounded border border-green-500/40 flex items-center gap-1"><Check /> LISTOS: {stats.processed}</span>}
+                                        {stats.processed > 0 && <span className="bg-slate-900 text-green-400 px-2 py-1 rounded border border-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)] flex items-center gap-1 font-bold"><Check /> LISTOS: {stats.processed}</span>}
                                         <span className="text-cyan-200 bg-cyan-900/30 px-2 py-1 rounded border border-cyan-500/20 font-bold">TOTAL: {stats.total}</span>
                                     </div>
                                 )}
@@ -764,24 +764,60 @@
                                         : 'bg-cyan-900/40 text-cyan-300 border-cyan-700/30 hover:bg-cyan-800 hover:text-white';
 
                                     if (res.isCollapsed) {
-                                        return (
-                                            <div 
-                                                key={idx} 
-                                                onClick={() => toggleCollapse(idx)}
-                                                className={`
-                                                    flex items-center justify-between p-2 rounded mb-2 cursor-pointer transition-all-height border border-slate-800 bg-slate-950/80 hover:border-cyan-500/50
-                                                    ${isActive ? 'border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : ''}
-                                                `}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="font-mono text-xs text-slate-600">{(idx + 1).toString().padStart(2, '0')}</span>
-                                                    <span className="font-bold text-sm text-cyan-600">{res.searchedId.toUpperCase()}</span>
-                                                    <div className={`w-2 h-2 rounded-full ${isNoOk ? 'bg-red-500' : res.copied ? 'bg-green-500' : hasEvidence ? 'bg-fuchsia-500' : 'bg-slate-700'}`}></div>
-                                                </div>
-                                                <ChevronDown className="w-4 h-4 text-cyan-600"/>
-                                            </div>
-                                        );
-                                    }
+    return (
+        <div 
+            key={idx} 
+            onClick={() => toggleCollapse(idx)}
+            className={`
+                flex items-center justify-between p-2 rounded mb-2 cursor-pointer transition-all border
+                ${isNoOk 
+                    ? 'bg-red-950/90 border-red-500 shadow-[inset_0_0_10px_rgba(220,38,38,0.5)]'
+                    : res.copied 
+                        ? 'bg-slate-900 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]'
+                        : res.isHistory 
+                            ? 'bg-slate-900 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+                            : res.isDuplicate 
+                                ? 'bg-yellow-900/10 border-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.3)]'
+                                : 'bg-slate-950/80 border-slate-800 hover:border-cyan-500/50'
+                }
+                ${isActive && !isNoOk && !res.copied && !res.isHistory ? 'border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : ''}
+            `}
+        >
+            <div className="flex items-center gap-3">
+                {/* AQUI ESTÁ LA CORRECCIÓN DE COLORES DEL NUMERAL */}
+                <span className={`font-mono text-xs font-bold 
+    ${isNoOk 
+        ? 'text-red-200'       // ROJO (Falla)
+        : res.copied 
+            ? 'text-green-400' // VERDE (Validado)
+        : res.isHistory 
+            ? 'text-purple-400' // MORADO INTENSO (Historial) <--- CORREGIDO AQUÍ
+        : res.isDuplicate 
+            ? 'text-yellow-200' // AMARILLO (Duplicado)
+            : 'text-cyan-200'   // CIAN BRILLANTE (Normal)
+    }
+`}>
+    {(idx + 1).toString().padStart(2, '0')}
+</span>
+
+                {/* Texto del ID */}
+                <span className={`font-bold text-sm 
+                    ${isNoOk 
+                        ? 'text-red-100 drop-shadow-[0_0_2px_rgba(220,38,38,0.8)]' 
+                        : res.copied ? 'text-green-400' 
+                        : res.isHistory ? 'text-purple-300' 
+                        : res.isDuplicate ? 'text-yellow-200' 
+                        : 'text-cyan-600'
+                    }
+                `}>
+                    {res.searchedId.toUpperCase()}
+                </span>
+            </div>
+            
+            <ChevronDown className={`w-4 h-4 ${isNoOk ? 'text-red-400' : res.isHistory ? 'text-purple-400' : 'text-cyan-600'}`}/>
+        </div>
+    );
+}
 
                                     return (
                                     <div 
@@ -803,9 +839,9 @@
                                                         : res.idCopiedEffect && !res.isHistory && !res.copied && !res.isBlueEffect 
                                                             ? 'bg-fuchsia-900/60 border-fuchsia-500 shadow-[inset_0_0_20px_rgba(232,121,249,0.3)]'
                                                             : res.copied 
-                                                                ? 'bg-slate-950/90 border-green-400/50 opacity-90' 
+                                                                ? 'bg-slate-900 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]' 
                                                                 : res.isHistory 
-                                                                    ? 'bg-purple-900/20 border-purple-500/30' 
+                                                                    ? 'bg-slate-900 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
                                                                     : res.data 
                                                                         ? 'bg-slate-900/60 border-cyan-500/20' 
                                                                         : 'bg-red-950/10 border-red-900/20 opacity-70'
@@ -815,18 +851,21 @@
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                             <div className="flex items-start gap-3 overflow-hidden w-full">
                                                 <div className={`font-mono text-xs w-6 pt-1 transition-colors duration-300
-                                                    ${isNoOk 
-                                                        ? 'text-red-200 font-bold'
-                                                        // : hasEvidence && !res.copied ? 'text-fuchsia-200 font-bold'
-                                                        : res.isBlueEffect && !res.copied ? 'text-blue-200 font-bold'
-                                                        : res.idCopiedEffect 
-                                                            ? res.isHistory ? 'text-white' : 'text-fuchsia-200 font-bold'
-                                                            : res.copied ? 'text-green-400'
-                                                            : 'text-slate-500'
-                                                    }
-                                                `}>
-                                                    {(idx + 1).toString().padStart(2, '0')}
-                                                </div>
+    ${isNoOk 
+        ? 'text-red-200 font-bold'       // ROJO (Falla)
+        : res.copied 
+            ? 'text-green-400'           // VERDE (Validado)
+        // --- AGREGA ESTAS LÍNEAS QUE FALTAN ---
+        : res.isHistory 
+            ? 'text-purple-400 font-bold' // MORADO INTENSO (Historial)
+        : res.isDuplicate 
+            ? 'text-yellow-200 font-bold' // AMARILLO (Duplicado)
+        // --------------------------------------
+        : 'text-cyan-200 font-bold'       // CIAN BRILLANTE (Normal - Antes era gris)
+    }
+`}>
+    {(idx + 1).toString().padStart(2, '0')}
+</div>
                                                 
                                                 {hasEvidence && (
                                                     <div 
