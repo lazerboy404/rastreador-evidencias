@@ -161,6 +161,72 @@
             // --- NUEVO ESTADO PARA EL VISOR DE IMAGEN (FEATURE 2) ---
             const [expandedImage, setExpandedImage] = useState(null);
 
+            // --- PEGA ESTO JUSTO DEBAJO DE setExpandedImage ---
+            
+            const fileInputRef = useRef(null); // Referencia para el input oculto
+
+            const handleBulkFiles = async (event) => {
+                // 1. Detectamos si viene de arrastrar (drop) o del botón (input)
+                const files = event.target.files || event.dataTransfer.files;
+                if (!files || files.length === 0) return;
+
+                // 2. Preguntamos confirmación por seguridad
+                if (!confirm(`⚠️ Vas a subir ${files.length} imágenes.\n\nEl sistema usará el NOMBRE DEL ARCHIVO como ID.\nEjemplo: 'MC12345.jpg' -> Se subirá al ID 'MC12345'.\n\n¿Continuar?`)) {
+                    if(fileInputRef.current) fileInputRef.current.value = ''; 
+                    return;
+                }
+
+                setBatchStatus('processing'); 
+
+                let successCount = 0;
+                let errorCount = 0;
+
+                // 3. Procesamos cada foto
+                const uploadPromises = Array.from(files).map(async (file) => {
+                    // Ignorar si no es imagen
+                    if (!file.type.startsWith('image/')) return;
+
+                    try {
+                        // A) Obtener ID del nombre (quitando .jpg, .png, etc)
+                        const fileName = file.name;
+                        const lastDotIndex = fileName.lastIndexOf('.');
+                        // Si no tiene punto, tomamos todo el nombre, si tiene, cortamos
+                        const idFromFileName = lastDotIndex === -1 
+                            ? fileName.toUpperCase().trim() 
+                            : fileName.substring(0, lastDotIndex).toUpperCase().trim();
+
+                        if (!idFromFileName) return;
+
+                        // B) Comprimir imagen
+                        const compressedBase64 = await compressImage(file);
+
+                        // C) Subir a Firebase (SIN cambiar fecha/timestamp para no mover el orden)
+                        await db.collection("historial_validaciones").doc(idFromFileName).set({ 
+                            evidence: compressedBase64, 
+                            status: "OK", 
+                            fecha: getFormattedDate()
+                            // Nota: No enviamos 'timestamp' para respetar el orden de tu lista
+                        }, { merge: true });
+
+                        successCount++;
+                    } catch (err) {
+                        console.error(`Error subiendo ${file.name}`, err);
+                        errorCount++;
+                    }
+                });
+
+                // 4. Esperar a que terminen todas
+                await Promise.all(uploadPromises);
+
+                setBatchStatus('idle'); 
+                if(fileInputRef.current) fileInputRef.current.value = ''; // Limpiar input para poder subir las mismas si se requiere
+                
+                // 5. Aviso final
+                setTimeout(() => {
+                    alert(`✅ PROCESO FINALIZADO\n\nFotos subidas: ${successCount}\nErrores/Ignorados: ${errorCount}`);
+                }, 500);
+            };
+
             const DATA_URL = "https://cdn.jsdelivr.net/gh/lazerboy404/buscador-totems@main/csvjson.json";
             const TEXT_NO_EVIDENCE = "SIN EVIDENCIA DE TERMINO DE IMPLEMENTACIÓN POR PARTE DEL PROVEEDOR.";
 
@@ -707,13 +773,43 @@
                                         {batchInput && <button onClick={handleCleanInput} className="text-sm md:text-base text-red-400 hover:text-white hover:bg-red-900/50 px-3 py-1 rounded transition-all underline md:no-underline border border-transparent md:border-red-900/30 ml-2">LIMPIAR</button>}
                                     </div>
                                 </div>
-                                <div className={`flex flex-col flex-grow overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto' : 'opacity-100'}`}>
-                                    <textarea value={batchInput} onChange={(e) => setBatchInput(e.target.value)} placeholder={`PEGAR LISTA AQUÍ...`} className="w-full flex-grow bg-slate-950/50 border border-cyan-900/50 rounded p-3 text-cyan-100 font-mono text-sm focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none custom-scrollbar"/>
-                                    <div className="flex gap-2 mt-4">
-                                        <button onClick={handleBatchProcess} disabled={batchStatus === 'processing' || !batchInput.trim()} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-900 font-bold tracking-widest rounded transition-all disabled:opacity-50 flex justify-center items-center gap-2 text-lg shadow-[0_0_15px_rgba(8,145,178,0.4)] flex-shrink-0">{batchStatus === 'processing' ? <Activity className="animate-spin w-5 h-5" /> : <Layers />} PROCESAR</button>
-                                    </div>
-                                    <button onClick={handleOpenManager} className="mt-2 w-full py-2 bg-indigo-900/60 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-800 hover:text-white rounded text-xs font-bold tracking-widest flex items-center justify-center gap-2 transition-all"><Users className="w-4 h-4" /> GESTOR TAREAS</button>
-                                </div>
+                               {/* --- PEGA ESTO EN EL HUECO QUE QUEDÓ --- */}
+<div 
+    className={`flex flex-col flex-grow overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto' : 'opacity-100'}`}
+    onDragOver={(e) => e.preventDefault()}
+    onDrop={(e) => { e.preventDefault(); handleBulkFiles(e); }}
+>
+    <textarea 
+        value={batchInput} 
+        onChange={(e) => setBatchInput(e.target.value)} 
+        placeholder={`PEGAR LISTA DE IDs O ARRASTRAR FOTOS AQUÍ...`} 
+        className="w-full flex-grow bg-slate-950/50 border border-cyan-900/50 rounded p-3 text-cyan-100 font-mono text-sm focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none custom-scrollbar"
+    />
+    
+    <div className="flex gap-2 mt-4">
+        <button onClick={handleBatchProcess} disabled={batchStatus === 'processing' || !batchInput.trim()} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-900 font-bold tracking-widest rounded transition-all disabled:opacity-50 flex justify-center items-center gap-2 text-lg shadow-[0_0_15px_rgba(8,145,178,0.4)] flex-shrink-0">{batchStatus === 'processing' ? <Activity className="animate-spin w-5 h-5" /> : <Layers />} PROCESAR</button>
+    </div>
+
+    <div className="flex gap-2 mt-2">
+        <button onClick={handleOpenManager} className="flex-1 py-2 bg-indigo-900/60 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-800 hover:text-white rounded text-xs font-bold tracking-widest flex items-center justify-center gap-2 transition-all"><Users className="w-4 h-4" /> GESTOR TAREAS</button>
+        
+        <button 
+            onClick={() => fileInputRef.current.click()} 
+            className="flex-1 py-2 bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-800 hover:text-white rounded text-xs font-bold tracking-widest flex items-center justify-center gap-2 transition-all"
+        >
+            <Camera className="w-4 h-4" /> SUBIR FOTOS
+        </button>
+    </div>
+
+    <input 
+        type="file" 
+        multiple 
+        accept="image/*"
+        ref={fileInputRef} 
+        className="hidden" 
+        onChange={handleBulkFiles}
+    />
+</div>
                             </div>
                         </div>
 
