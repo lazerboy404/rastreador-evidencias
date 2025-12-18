@@ -518,37 +518,36 @@
 };
 
             // --- FUNCIÓN RESET MEJORADA: BORRA EL ESTADO ROJO DE LA NUBE ---
-            const handleResetCard = async (index, id) => { 
-                if(!confirm("¿Restablecer tarjeta? Se eliminará el estado 'NO OK' y las observaciones.")) return;
+            const handleResetCard = async (id) => { 
+    if(!confirm("¿Restablecer tarjeta? Se eliminará el estado 'NO OK' y las observaciones.")) return;
 
-                setActiveRow(index);
+    // ACTUALIZACIÓN EN NUBE
+    try {
+        await db.collection("historial_validaciones").doc(id.toUpperCase()).set({
+            status: "OK",       
+            observation: "",    
+            validado: false     
+        }, { merge: true });
+    } catch(e) {
+        console.error("Error al resetear:", e);
+    }
 
-                // ACTUALIZACIÓN EN NUBE
-                try {
-                    await db.collection("historial_validaciones").doc(id).set({
-                        status: "OK",       
-                        observation: "",    
-                        validado: false     
-                    }, { merge: true });
-                } catch(e) {
-                    console.error("Error al resetear:", e);
-                }
+    // ACTUALIZACIÓN LOCAL (Buscamos por ID para que funcione con la LUPA)
+    setBatchResults(prev => prev.map((res) => 
+        res.searchedId.toUpperCase() === id.toUpperCase() ? { 
+            ...res, 
+            copied: false, isNoOk: false, isBlueEffect: false, idCopiedEffect: false,
+            observationText: undefined,
+            isObservationSaved: false, isInputOpen: false, isEvidenceOpen: false, imageCopied: false,
+            isCollapsed: false 
+        } : res
+    ));
+};
 
-                // ACTUALIZACIÓN LOCAL
-                setBatchResults(prev => prev.map((res, i) => 
-                    i === index ? { 
-                        ...res, 
-                        copied: false, isNoOk: false, isBlueEffect: false, idCopiedEffect: false,
-                        observationText: undefined, // Reset lectura nube
-                        isObservationSaved: false, isInputOpen: false, isEvidenceOpen: false, imageCopied: false,
-                        isCollapsed: false 
-                    } : res
-                ));
-            };
+
 
             const handleBatchProcess = async () => {
     if (!batchInput.trim()) return;
-    
     // 1. Preparamos interfaz
     setBatchStatus('processing'); 
     setBatchResults([]); 
@@ -596,24 +595,26 @@
             // Verificamos si existía ANTES de este proceso para pintarlo morado o no
             const wasAlreadyRegistered = !!cloudRecord; 
 
-            return { 
-                searchedId: id, 
-                data: found, 
-                copied: false, 
-                isDuplicate: isDuplicateBatch, // Amarillo si está repetido en la lista
-                isHistory: wasAlreadyRegistered, // Morado si ya estaba registrado antes
-                idCopiedEffect: false, 
-                isBlueEffect: false, 
-                isAnimating: false,
-                isNoOk: cloudRecord ? cloudRecord.status === "NO OK" : false,
-                observationText: undefined, 
-                isObservationSaved: cloudRecord ? !!cloudRecord.observation : false,
-                isInputOpen: false, 
-                isEvidenceOpen: false, 
-                evidenceCopiedFeedback: false, 
-                imageCopied: false,
-                isCollapsed: false 
-            }; 
+            // Dentro de handleBatchProcess, busca la parte del return del map:
+return { 
+    searchedId: id, 
+    data: found, 
+    copied: false, 
+    isDuplicate: isDuplicateBatch, 
+    isHistory: wasAlreadyRegistered, 
+    idCopiedEffect: false, 
+    isBlueEffect: false, 
+    isAnimating: false,
+    // CAMBIO AQUÍ: Forzamos la lectura de la nube al procesar
+    isNoOk: cloudRecord ? cloudRecord.status === "NO OK" : false, 
+    observationText: cloudRecord ? cloudRecord.observation : undefined, 
+    isObservationSaved: cloudRecord ? !!cloudRecord.observation : false,
+    isInputOpen: false, 
+    isEvidenceOpen: false, 
+    evidenceCopiedFeedback: false, 
+    imageCopied: false,
+    isCollapsed: false 
+};
         });
         
         setBatchResults(results); 
@@ -689,7 +690,7 @@ const handleRemoveCardLocally = (idToRemove) => {
             // --- ESTILOS DE COLOR TARJETA ---
             const getGlowColor = (res) => {
                 const cloudRecord = historyData[res.searchedId.toUpperCase()] || {};
-                const isNoOk = res.isNoOk || cloudRecord.status === "NO OK";
+                const isNoOk = cloudRecord.status === "NO OK" || res.isNoOk;
                 const hasEvidence = !!cloudRecord.evidence;
 
                 if (isNoOk) return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]';
@@ -1090,7 +1091,13 @@ const handleRemoveCardLocally = (idToRemove) => {
 >
     <TrashCard />
 </button>
-<button onClick={(e) => { e.stopPropagation(); handleResetCard(idx, res.searchedId.toUpperCase()); }} className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" title="Limpiar estado (Reset)"><RotateCcw /></button>
+<button 
+    onClick={(e) => { e.stopPropagation(); handleResetCard(res.searchedId); }} 
+    className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" 
+    title="Limpiar estado (Reset)"
+>
+    <RotateCcw />
+</button>
 
                                                     <div className="flex rounded border overflow-hidden transition-all shadow-sm h-10 border-slate-700">
                                                         <button 
