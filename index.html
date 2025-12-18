@@ -99,6 +99,8 @@
         const Minimize = () => <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>;
         const Users = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
         const ShareIcon = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>;
+        const SearchIcon = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
+        const TrashCard = () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
 
         
         const compressImage = (file) => {
@@ -136,6 +138,7 @@
             const [data, setData] = useState([]);
             const [historyList, setHistoryList] = useState([]); 
             const [historyData, setHistoryData] = useState({}); 
+            
 
             const [batchInput, setBatchInput] = useState(() => localStorage.getItem('v3_input_backup') || '');
             const [batchResults, setBatchResults] = useState(() => {
@@ -153,6 +156,7 @@
             const [dbConnected, setDbConnected] = useState(false);
             const [copiedNoEvidence, setCopiedNoEvidence] = useState(false);
             const [manualCollapse, setManualCollapse] = useState(false);
+            const [searchTerm, setSearchTerm] = useState(''); // Estado para la lupa
 
             const [showManagerModal, setShowManagerModal] = useState(false);
             const [managerListName, setManagerListName] = useState('');
@@ -601,6 +605,28 @@
     }, 500);
 };
 
+// --- NUEVAS FUNCIONES DE APOYO ---
+const filteredResults = batchResults.filter(res => {
+    if (!searchTerm.trim()) return true;
+    const searchIds = searchTerm.toUpperCase().split(/[\n, ]+/).filter(s => s !== '');
+    return searchIds.some(sId => res.searchedId.toUpperCase().includes(sId));
+});
+
+const handleRemoveCardLocally = (idToRemove) => {
+    // 1. Quitar de la vista derecha filtrando por el ID directamente
+    const newResults = batchResults.filter((res) => res.searchedId.toUpperCase() !== idToRemove.toUpperCase());
+    setBatchResults(newResults);
+
+    // 2. Quitar del cuadro de texto de la izquierda (batchInput)
+    const regex = new RegExp(`(^|[\\n,])\\s*${idToRemove}\\s*([\\n,]|$)`, 'gi');
+    const newInput = batchInput.replace(regex, (match, p1, p2) => {
+        return (p1 === '\n' || p2 === '\n') ? '\n' : '';
+    }).replace(/,+/g, ',').replace(/\n+/g, '\n').trim();
+    
+    setBatchInput(newInput);
+};
+// --------------------------------
+
             const handleCleanInput = () => { setLastDeletedInput(batchInput); setBatchInput(''); setBatchResults([]); setBatchStatus('idle'); setManualCollapse(false); saveToHistory(''); setActiveRow(-1); };
             const handleRestoreInput = () => { if (lastDeletedInput) { setBatchInput(lastDeletedInput); saveToHistory(lastDeletedInput); } };
             const handleRestoreCloudSession = async () => { if (!confirm("¿Restaurar?")) return; setBatchStatus('processing'); try { const doc = await db.collection('app_state').doc('global_session').get(); if (doc.exists) { const remoteData = doc.data(); setBatchInput(remoteData.input || ''); setBatchResults(remoteData.results || []); if (remoteData.results?.length > 0) { setBatchStatus('done'); setManualCollapse(true); } else { setBatchStatus('idle'); } alert("Recuperado."); } } catch (error) { console.error(error); alert("Error."); } finally { if (batchResults.length === 0 && !batchInput) setBatchStatus('idle'); } };
@@ -816,14 +842,28 @@
                         <div className="w-full lg:w-2/3 bg-slate-900/40 border border-cyan-900/30 rounded-lg p-4 flex flex-col h-full min-h-0">
                             <div className="flex flex-wrap gap-4 justify-between items-center mb-4 border-b border-cyan-900/50 pb-2 flex-shrink-0">
                                 <div className="flex items-center gap-4">
-                                    <h3 className="text-cyan-400 tracking-widest text-sm font-bold">RESULTADOS</h3>
-                                    {batchResults.length > 0 && (
-                                        <button onClick={handleToggleAllCollapse} className="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-300 px-2 py-1 rounded border border-slate-600 flex items-center gap-1 transition-colors">
-                                            {anyCollapsed ? <Maximize className="w-3 h-3"/> : <Minimize className="w-3 h-3"/>}
-                                            {anyCollapsed ? "EXPANDIR TODO" : "CONTRAER TODO"}
-                                        </button>
-                                    )}
-                                </div>
+    <h3 className="text-cyan-400 tracking-widest text-sm font-bold">RESULTADOS</h3>
+    {batchResults.length > 0 && (
+        <button onClick={handleToggleAllCollapse} className="text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-300 px-2 py-1 rounded border border-slate-600 flex items-center gap-1 transition-colors">
+            {anyCollapsed ? <Maximize className="w-3 h-3"/> : <Minimize className="w-3 h-3"/>}
+            {anyCollapsed ? "EXPANDIR TODO" : "CONTRAER TODO"}
+        </button>
+    )}
+</div>
+
+{/* --- ESTO ES LO QUE TE FALTA: LA LUPA VISUAL --- */}
+<div className="relative flex-grow max-w-xs ml-auto mr-4">
+    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-cyan-600">
+        <SearchIcon />
+    </div>
+    <input 
+        type="text"
+        placeholder="Buscar ID(s)..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full bg-black/40 border border-cyan-900/50 rounded-full py-1.5 pl-10 pr-4 text-xs text-cyan-100 focus:border-cyan-400 outline-none transition-all placeholder:text-cyan-900/50"
+    />
+</div>
                                 {batchResults.length > 0 && (
                                     <div className="flex flex-wrap gap-3 text-[10px] md:text-xs font-mono items-center justify-end flex-grow">
                                         {stats.duplicates > 0 && <span className="text-yellow-300 bg-yellow-900/20 px-2 py-1 rounded border border-yellow-500/20 whitespace-nowrap">DUPLICADOS: {stats.duplicates}</span>}
@@ -841,7 +881,7 @@
                                 {batchStatus === 'processing' && (
                                     <div className="space-y-3 p-4"><div className="text-center text-cyan-400 tracking-widest animate-pulse mb-4">CONSULTANDO NUBE...</div>{[1,2,3,4,5].map(i => <div key={i} className="h-14 bg-slate-800/50 rounded animate-pulse border border-cyan-900/20"></div>)}</div>
                                 )}
-                                {batchResults.map((res, idx) => {
+                                {filteredResults.map((res, idx) => {
                                     // --- LECTURA EN TIEMPO REAL (CORREGIDO) ---
                                     const cloudRecord = historyData[res.searchedId.toUpperCase()] || {};
                                     const hasEvidence = !!cloudRecord.evidence;
@@ -1027,7 +1067,14 @@
                                                         <ChevronUp className="w-4 h-4"/>
                                                     </button>
 
-                                                    <button onClick={(e) => { e.stopPropagation(); handleResetCard(idx, res.searchedId.toUpperCase()); }} className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" title="Limpiar estado (Reset)"><RotateCcw /></button>
+                                                    <button 
+    onClick={(e) => { e.stopPropagation(); handleRemoveCardLocally(res.searchedId); }} 
+    className="w-8 h-10 rounded border border-red-900/50 bg-red-950/20 text-red-500 hover:bg-red-600 hover:text-white flex items-center justify-center transition-colors"
+    title="Eliminar ID localmente"
+>
+    <TrashCard />
+</button>
+<button onClick={(e) => { e.stopPropagation(); handleResetCard(idx, res.searchedId.toUpperCase()); }} className="w-8 rounded border border-slate-600 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center transition-colors" title="Limpiar estado (Reset)"><RotateCcw /></button>
 
                                                     <div className="flex rounded border overflow-hidden transition-all shadow-sm h-10 border-slate-700">
                                                         <button 
@@ -1128,3 +1175,4 @@
     </script>
 </body>
 </html>
+
