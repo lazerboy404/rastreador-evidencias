@@ -451,24 +451,24 @@
             const handleObservationChange = (index, text) => { setBatchResults(prev => prev.map((res, i) => i === index ? { ...res, observationText: text } : res )); };
             
             const handleSaveObservation = (index, id, text) => { 
-                const textToSend = text || "";
-                db.collection("historial_validaciones").doc(id).set({ 
-                    validado: true, 
-                    status: "NO OK", 
-                    observation: textToSend,
-                }, { merge: true }); 
-                
-                setBatchResults(prev => prev.map((res, i) => 
-                    i === index ? { 
-                        ...res, 
-                        isObservationSaved: true,
-                        isInputOpen: false,
-                        observationText: undefined, // Libera el input para que vuelva a leer de la nube
-                        isNoOk: true
-                    } : res 
-                )); 
-            };
-
+    const textToSend = text || "";
+    db.collection("historial_validaciones").doc(id).set({ 
+        validado: true, 
+        status: "NO OK", // Esto asegura que siempre sea rojo al recargar
+        observation: textToSend,
+        fecha: getFormattedDate(),
+        timestamp: Date.now()
+    }, { merge: true }); 
+    
+    setBatchResults(prev => prev.map((res, i) => 
+        i === index ? { 
+            ...res, 
+            isObservationSaved: true,
+            isInputOpen: false,
+            isNoOk: true // Mantiene el rojo visualmente
+        } : res 
+    )); 
+};
             const handleEditObservation = (index, currentText) => {
                 setBatchResults(prev => prev.map((res, i) => 
                     i === index ? { 
@@ -492,14 +492,28 @@
             };
 
             const handleNoOk = (index) => {
-                setActiveRow(index);
-                setBatchResults(prev => prev.map((res, i) => {
-                    if (i !== index) return res;
-                    if (res.isNoOk) { return { ...res, isInputOpen: !res.isInputOpen }; }
-                    // CORRECCION AQUI: No inicializar con "" para que lea la nube por defecto
-                    return { ...res, isNoOk: true, copied: false, idCopiedEffect: false, isBlueEffect: false, isObservationSaved: false, isInputOpen: true };
-                }));
-            };
+    setActiveRow(index);
+    setBatchResults(prev => prev.map((res, i) => {
+        if (i !== index) return res;
+        
+        // Si ya está en rojo (isNoOk), solo abre o cierra el cuadro de texto
+        if (res.isNoOk) { 
+            return { ...res, isInputOpen: !res.isInputOpen }; 
+        }
+        
+        // Si es la primera vez que marcas el tache:
+        // Forzamos isNoOk: true y quitamos cualquier otro estado (verde o azul)
+        return { 
+            ...res, 
+            isNoOk: true, 
+            copied: false, 
+            idCopiedEffect: false, 
+            isBlueEffect: false, 
+            isInputOpen: true,
+            isObservationSaved: false
+        };
+    }));
+};
 
             // --- FUNCIÓN RESET MEJORADA: BORRA EL ESTADO ROJO DE LA NUBE ---
             const handleResetCard = async (index, id) => { 
@@ -673,7 +687,7 @@ const handleRemoveCardLocally = (idToRemove) => {
             // --- ESTILOS DE COLOR TARJETA ---
             const getGlowColor = (res) => {
                 const cloudRecord = historyData[res.searchedId.toUpperCase()] || {};
-                const isNoOk = cloudRecord.status === "NO OK";
+                const isNoOk = res.isNoOk || cloudRecord.status === "NO OK";
                 const hasEvidence = !!cloudRecord.evidence;
 
                 if (isNoOk) return 'text-red-500 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)]';
