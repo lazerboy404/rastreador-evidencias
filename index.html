@@ -138,7 +138,8 @@
             const [data, setData] = useState([]);
             const [historyList, setHistoryList] = useState([]); 
             const [historyData, setHistoryData] = useState({}); 
-            
+            const [showFaultsModal, setShowFaultsModal] = useState(false);
+            const [faultsInput, setFaultsInput] = useState('');
 
             const [batchInput, setBatchInput] = useState(() => localStorage.getItem('v3_input_backup') || '');
             const [batchResults, setBatchResults] = useState(() => {
@@ -670,6 +671,63 @@ const handleRemoveCardLocally = (idToRemove) => {
                 } catch(e) { alert("Error al guardar: " + e.message); }
             };
 
+
+            const handleBulkFaults = async () => {
+    if (!faultsInput.trim()) return alert("Por favor pega la lista de fallas.");
+    
+    // Validar formato simple
+    if (!confirm("⚠️ Se actualizarán los IDs a estado 'NO OK' con sus observaciones.\n\nFormato esperado por línea:\nID, OBSERVACIÓN\n\n¿Continuar?")) return;
+
+    setBatchStatus('processing');
+    const lines = faultsInput.split('\n');
+    const batch = db.batch();
+    let count = 0;
+    let errors = 0;
+
+    lines.forEach(line => {
+        if (!line.trim()) return;
+
+        // Detectar separador: Tabulador (Excel) o Coma (CSV)
+        let separator = line.includes('\t') ? '\t' : ',';
+        
+        // Dividir solo en la primera ocurrencia para no romper si la observación lleva comas
+        const parts = line.split(separator);
+        
+        // Necesitamos al menos el ID. Si no hay observación, se pone texto genérico.
+        if (parts.length >= 1) {
+            const id = parts[0].trim().toUpperCase();
+            // Unir el resto del array por si la observación tenía comas
+            const observation = parts.slice(1).join(separator).trim() || "FALLA REPORTADA (SIN DETALLE)";
+
+            if (id.length > 3) { // Validación mínima de ID
+                const docRef = db.collection("historial_validaciones").doc(id);
+                batch.set(docRef, {
+                    status: "NO OK",
+                    validado: true,
+                    observation: observation,
+                    fecha: getFormattedDate(),
+                    timestamp: Date.now()
+                }, { merge: true });
+                count++;
+            } else {
+                errors++;
+            }
+        }
+    });
+
+    try {
+        await batch.commit();
+        alert(`✅ PROCESO FINALIZADO\n\nRegistros marcados como NO OK: ${count}\nIgnorados/Erróneos: ${errors}`);
+        setShowFaultsModal(false);
+        setFaultsInput('');
+        setBatchStatus('idle');
+    } catch (e) {
+        console.error(e);
+        alert("Error al subir fallas: " + e.message);
+        setBatchStatus('idle');
+    }
+};
+
             // --- NUEVA FUNCION: BORRAR LISTA DEL HELPER ---
             const handleDeleteTask = async () => {
                 if(!managerListName.trim()) return alert("Escribe el nombre de la lista que quieres borrar (ej: ZONA1).");
@@ -757,6 +815,37 @@ const handleRemoveCardLocally = (idToRemove) => {
                         </div>
                     </div>
                 )}
+{/* MODAL SUBIDA MASIVA DE FALLAS */}
+{showFaultsModal && (
+    <div className="fixed inset-0 bg-red-950/90 z-[100] flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-slate-900 border-2 border-red-500 p-6 rounded-lg w-full max-w-md shadow-[0_0_50px_rgba(220,38,38,0.4)] relative mx-4 flex flex-col gap-4">
+            <h3 className="text-xl font-bold text-red-400 flex items-center gap-2"><AlertCircle /> REPORTE MASIVO DE FALLAS</h3>
+            
+            <div className="bg-red-900/20 p-3 rounded border border-red-500/30 text-xs text-red-200">
+                <p className="font-bold mb-1">INSTRUCCIONES:</p>
+                <p>Copia y pega desde Excel o CSV. El sistema detectará IDs y pondrá tarjeta roja automáticamente.</p>
+                <p className="mt-2 opacity-70">Formato: <code>ID [TAB o COMA] MOTIVO DE FALLA</code></p>
+                <p className="opacity-70">Ej: <code>MC20202, CÁMARA SUCIA</code></p>
+            </div>
+
+            <textarea
+                autoFocus
+                value={faultsInput}
+                onChange={(e) => setFaultsInput(e.target.value)}
+                placeholder={`MC10101, NO ENLAZA\nMC20202, CAMARA SUCIA\nMC30303, SIN ENERGIA...`}
+                className="w-full h-48 bg-black/50 border border-red-700 rounded p-3 text-white outline-none focus:border-red-400 font-mono text-xs resize-none custom-scrollbar"
+            />
+
+            <div className="flex gap-2 justify-end mt-2">
+                <button onClick={() => setShowFaultsModal(false)} className="px-4 py-2 rounded text-slate-400 hover:text-white transition-colors text-xs">CANCELAR</button>
+                <button onClick={handleBulkFaults} className="px-6 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded shadow-[0_0_15px_rgba(220,38,38,0.5)] text-xs flex items-center gap-2">
+                    <FileWarning className="w-4 h-4" /> PROCESAR FALLAS
+                </button>
+            </div>
+        </div>
+    </div>
+)}
+
 
                 {/* --- FEATURE 2: MODAL/VISOR DE IMAGEN EN GRANDE --- */}
                 {expandedImage && (
@@ -829,20 +918,23 @@ const handleRemoveCardLocally = (idToRemove) => {
         className="w-full flex-grow bg-slate-950/50 border border-cyan-900/50 rounded p-3 text-cyan-100 font-mono text-sm focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none custom-scrollbar"
     />
     
-    <div className="flex gap-2 mt-4">
-        <button onClick={handleBatchProcess} disabled={batchStatus === 'processing' || !batchInput.trim()} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-900 font-bold tracking-widest rounded transition-all disabled:opacity-50 flex justify-center items-center gap-2 text-lg shadow-[0_0_15px_rgba(8,145,178,0.4)] flex-shrink-0">{batchStatus === 'processing' ? <Activity className="animate-spin w-5 h-5" /> : <Layers />} PROCESAR</button>
-    </div>
-
     <div className="flex gap-2 mt-2">
-        <button onClick={handleOpenManager} className="flex-1 py-2 bg-indigo-900/60 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-800 hover:text-white rounded text-xs font-bold tracking-widest flex items-center justify-center gap-2 transition-all"><Users className="w-4 h-4" /> GESTOR TAREAS</button>
-        
-        <button 
-            onClick={() => fileInputRef.current.click()} 
-            className="flex-1 py-2 bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-800 hover:text-white rounded text-xs font-bold tracking-widest flex items-center justify-center gap-2 transition-all"
-        >
-            <Camera className="w-4 h-4" /> SUBIR FOTOS
-        </button>
-    </div>
+    {/* Botón Gestor existente */}
+    <button onClick={handleOpenManager} className="flex-1 py-2 bg-indigo-900/60 border border-indigo-500/50 text-indigo-300 hover:bg-indigo-800 hover:text-white rounded text-[10px] md:text-xs font-bold tracking-widest flex items-center justify-center gap-1 transition-all"><Users className="w-3 h-3 md:w-4 md:h-4" /> GESTOR</button>
+    
+    {/* NUEVO BOTÓN: SUBIR FALLAS */}
+    <button onClick={() => setShowFaultsModal(true)} className="flex-1 py-2 bg-red-900/60 border border-red-500/50 text-red-300 hover:bg-red-800 hover:text-white rounded text-[10px] md:text-xs font-bold tracking-widest flex items-center justify-center gap-1 transition-all shadow-[0_0_10px_rgba(220,38,38,0.2)]">
+        <FileWarning className="w-3 h-3 md:w-4 md:h-4" /> SUBIR FALLAS
+    </button>
+    
+    {/* Botón Fotos existente */}
+    <button 
+        onClick={() => fileInputRef.current.click()} 
+        className="flex-1 py-2 bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-800 hover:text-white rounded text-[10px] md:text-xs font-bold tracking-widest flex items-center justify-center gap-1 transition-all"
+    >
+        <Camera className="w-3 h-3 md:w-4 md:h-4" /> SUBIR FOTOS
+    </button>
+</div>
 
     <input 
         type="file" 
